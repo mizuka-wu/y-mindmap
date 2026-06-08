@@ -15,6 +15,10 @@
   },
   "dependencies": {
     "@y-mindmap/vanilla": "workspace:*",
+    "@y-mindmap/core": "workspace:*",
+    "@y-mindmap/view": "workspace:*",
+    "@y-mindmap/templates": "workspace:*",
+    "@y-mindmap/ai": "workspace:*",
     "yjs": "^13.6.0",
     "y-websocket": "^2.0.0"
   }
