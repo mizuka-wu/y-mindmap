@@ -6,7 +6,8 @@ export {
   yMapToTopicData,
   CollaboratorManager,
   createCollaboratorState,
-} from './binding'
+  createCollabDoc,
+} from "./binding";
 
 export type {
   YDocBinding,
@@ -14,4 +15,8 @@ export type {
   CollaboratorUser,
   LockConflict,
   ActivityType,
-} from './binding'
+  CollabDoc,
+} from "./binding";
+
+export { CollabManager } from "./collab-manager";
+export type { CollabOptions, CollabState } from "./collab-manager";

@@ -56,6 +56,7 @@ import {
   createYDocBinding,
   syncTopicToY,
   syncYToTopic,
+  topicDataToYMap,
   YDocBinding,
   CollaboratorManager,
   CollaboratorState,
@@ -251,7 +252,9 @@ export class MindMapEditor {
     const topic = this.getDocument().root.toData();
     syncTopicToY(ydoc, topic);
 
-    ydoc.on("update", () => {
+    ydoc.on("update", (_update, origin) => {
+      if (origin === "editor-dispatch") return;
+
       const remoteTopic = syncYToTopic(ydoc);
       if (remoteTopic) {
         const doc = MindMapDocument.fromJSON(remoteTopic);
@@ -307,11 +310,56 @@ export class MindMapEditor {
     });
   }
 
-  private syncToYDoc(): void {
-    if (this.ydoc && this.binding) {
-      const topic = this.getDocument().root.toData();
-      syncTopicToY(this.ydoc, topic);
-    }
+  private syncTransactionToYDoc(tr: Transaction): void {
+    if (!this.ydoc) return;
+
+    this.ydoc.transact(() => {
+      const nodes = this.ydoc!.getMap<Y.Map<any>>("nodes");
+
+      for (const step of tr.steps) {
+        switch (step.type) {
+          case "addNode": {
+            const node = tr.doc.getNodeById(step.node.id);
+            if (node) {
+              nodes.set(node.id, topicDataToYMap(node.toData()));
+            }
+            break;
+          }
+          case "removeNode": {
+            nodes.delete(step.id);
+            break;
+          }
+          case "updateNode":
+          case "updateTitle":
+          case "updateStyle":
+          case "toggleFold":
+          case "setStructureClass": {
+            const node = tr.doc.getNodeById(step.id);
+            if (node) {
+              nodes.set(node.id, topicDataToYMap(node.toData()));
+            }
+            break;
+          }
+          case "moveNode": {
+            const movedNode = tr.doc.getNodeById(step.nodeId);
+            if (movedNode) {
+              nodes.set(step.nodeId, topicDataToYMap(movedNode.toData()));
+            }
+            const oldParent = tr.beforeDoc.findParent(step.nodeId);
+            if (oldParent) {
+              nodes.set(oldParent.id, topicDataToYMap(oldParent.toData()));
+            }
+            const newParent = tr.doc.findParent(step.nodeId);
+            if (newParent && newParent.id !== oldParent?.id) {
+              nodes.set(newParent.id, topicDataToYMap(newParent.toData()));
+            }
+            break;
+          }
+          case "setSelection":
+            break;
+        }
+      }
+    }, "editor-dispatch");
   }
 
   getState(): EditorState {
@@ -337,7 +385,7 @@ export class MindMapEditor {
     this.view.updateState(this.state);
     this.interactionManager.updateState(this.state);
     this.uiManager.update();
-    this.syncToYDoc();
+    this.syncTransactionToYDoc(tr);
   }
 
   executeCommand(name: string, args?: any): boolean {
@@ -350,7 +398,9 @@ export class MindMapEditor {
   }
 
   loadDocument(doc: MindMapDocument): void {
-    this.state = EditorState.create(doc);
+    const selection = this.state.selection;
+    this.state = new EditorState(doc, selection, this.state.history);
+    this.uiContext.state = this.state;
     this.view.updateState(this.state);
     this.interactionManager.updateState(this.state);
     this.uiManager.update();
