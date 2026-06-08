@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Y-MindMap - 协作 Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+    .header { background: white; border-bottom: 1px solid #ddd; padding: 16px 24px; }
+    .header h1 { font-size: 24px; color: #333; }
+    .nav { display: flex; gap: 12px; margin-top: 12px; }
+    .nav a { padding: 8px 16px; background: #4A90D9; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; }
+    .nav a:hover { background: #357ABD; }
+    .nav a.active { background: #2C5F8A; }
+    .container { padding: 24px; display: flex; gap: 24px; }
+    .editor-container { flex: 1; }
+    .sidebar { width: 300px; }
+    #app { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); height: calc(100vh - 200px); }
+    .panel { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 16px; }
+    .panel h3 { margin-bottom: 12px; color: #333; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; margin-bottom: 4px; font-size: 14px; color: #666; }
+    .form-group input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    .btn { padding: 8px 16px; background: #4A90D9; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn:hover { background: #357ABD; }
+    .btn:disabled { background: #ccc; cursor: not-allowed; }
+    .user-list { margin-top: 12px; }
+    .user-item { display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 4px; }
+    .user-avatar { width: 24px; height: 24px; border-radius: 50%; }
+    .status { margin-top: 12px; padding: 8px; background: #f5f5f5; border-radius: 4px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Y-MindMap - 协作 Demo</h1>
+    <div class="nav">
+      <a href="/">基础</a>
+      <a href="/richtext.html">富文本</a>
+      <a href="/collaboration.html" class="active">协作</a>
+      <a href="/templates.html">模板</a>
+      <a href="/themes.html">主题</a>
+      <a href="/layouts.html">布局</a>
+      <a href="/ai.html">AI</a>
+    </div>
+  </div>
+  <div class="container">
+    <div class="editor-container">
+      <div id="app"></div>
+    </div>
+    <div class="sidebar">
+      <div class="panel">
+        <h3>协作设置</h3>
+        <div class="form-group">
+          <label>用户名</label>
+          <input type="text" id="user-name" value="">
+        </div>
+        <div class="form-group">
+          <label>房间号</label>
+          <input type="text" id="room-id" value="demo-room">
+        </div>
+        <div class="form-group">
+          <label>服务器</label>
+          <input type="text" id="server-url" value="ws://localhost:1234">
+        </div>
+        <button class="btn" id="btn-connect">连接</button>
+        <button class="btn" id="btn-disconnect" disabled>断开</button>
+        <div class="status" id="status">未连接</div>
+      </div>
+      <div class="panel">
+        <h3>在线用户</h3>
+        <div class="user-list" id="user-list"></div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./src/collaboration.ts"></script>
+</body>
+</html>

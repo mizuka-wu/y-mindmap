@@ -1,0 +1,219 @@
+import { MindMapNode } from '@y-mindmap/state'
+import { LayoutEngine, LayoutResult, LayoutOptions, NodeLayout, ConnectionLayout, DEFAULT_LAYOUT_OPTIONS } from './types'
+import { calculateNodeSize, calculateBounds, mergeOptions, getAttachedChildren } from './utils'
+
+export class MapClockwiseLayout implements LayoutEngine {
+  calculate(root: MindMapNode, options?: Partial<LayoutOptions>): LayoutResult {
+    const opts = mergeOptions(options)
+    const nodes = new Map<string, NodeLayout>()
+    const connections = new Map<string, ConnectionLayout>()
+
+    const rootSize = calculateNodeSize(root)
+    const rootNode: NodeLayout = {
+      id: root.id,
+      x: 0,
+      y: 0,
+      width: rootSize.width,
+      height: rootSize.height,
+      childrenBounds: { x: 0, y: 0, width: rootSize.width, height: rootSize.height },
+    }
+    nodes.set(root.id, rootNode)
+
+    const children = getAttachedChildren(root)
+    if (children.length > 0) {
+      this.layoutChildren(rootNode, children, opts, nodes, connections, true)
+    }
+
+    const bounds = calculateBounds(nodes)
+    return { nodes, connections, bounds }
+  }
+
+  calculateNodeSize(node: MindMapNode): import('@y-mindmap/core').Size {
+    return calculateNodeSize(node)
+  }
+
+  calculateConnectionPath(_from: NodeLayout, _to: NodeLayout): string {
+    return ''
+  }
+
+  protected layoutChildren(
+    parent: NodeLayout,
+    children: MindMapNode[],
+    options: LayoutOptions,
+    nodes: Map<string, NodeLayout>,
+    connections: Map<string, ConnectionLayout>,
+    clockwise: boolean
+  ): void {
+    const half = Math.ceil(children.length / 2)
+    const rightChildren = clockwise ? children.slice(0, half) : children.slice(half)
+    const leftChildren = clockwise ? children.slice(half) : children.slice(0, half)
+
+    this.layoutSide(parent, rightChildren, 'right', options, nodes, connections)
+    this.layoutSide(parent, leftChildren, 'left', options, nodes, connections)
+  }
+
+  protected layoutSide(
+    parent: NodeLayout,
+    children: MindMapNode[],
+    side: 'left' | 'right',
+    options: LayoutOptions,
+    nodes: Map<string, NodeLayout>,
+    connections: Map<string, ConnectionLayout>
+  ): void {
+    if (children.length === 0) return
+
+    let totalHeight = 0
+    const childSizes: import('@y-mindmap/core').Size[] = []
+
+    for (const child of children) {
+      const size = calculateNodeSize(child)
+      childSizes.push(size)
+      totalHeight += size.height + options.verticalSpacing
+    }
+    totalHeight -= options.verticalSpacing
+
+    const startY = parent.y + parent.height / 2 - totalHeight / 2
+    let currentY = startY
+
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i]
+      if (!child) continue
+      const size = childSizes[i]
+      if (!size) continue
+
+      const childX = side === 'right'
+        ? parent.x + parent.width + options.horizontalSpacing
+        : parent.x - size.width - options.horizontalSpacing
+
+      const nodeLayout: NodeLayout = {
+        id: child.id,
+        x: childX,
+        y: currentY,
+        width: size.width,
+        height: size.height,
+        childrenBounds: { x: childX, y: currentY, width: size.width, height: size.height },
+      }
+      nodes.set(child.id, nodeLayout)
+
+      const connectionId = `${parent.id}-${child.id}`
+      const startX = side === 'right' ? parent.x + parent.width : parent.x
+      const startYConn = parent.y + parent.height / 2
+      const endX = side === 'right' ? childX : childX + size.width
+      const endY = currentY + size.height / 2
+
+      connections.set(connectionId, {
+        id: connectionId,
+        fromId: parent.id,
+        toId: child.id,
+        path: `M ${startX} ${startYConn} L ${endX} ${endY}`,
+        startPoint: { x: startX, y: startYConn },
+        endPoint: { x: endX, y: endY },
+        controlPoints: [],
+      })
+
+      currentY += size.height + options.verticalSpacing
+    }
+  }
+}
+
+export class MapAnticlockwiseLayout extends MapClockwiseLayout {
+  protected layoutChildren(
+    parent: NodeLayout,
+    children: MindMapNode[],
+    options: LayoutOptions,
+    nodes: Map<string, NodeLayout>,
+    connections: Map<string, ConnectionLayout>,
+    clockwise: boolean
+  ): void {
+    const half = Math.ceil(children.length / 2)
+    const leftChildren = children.slice(0, half)
+    const rightChildren = children.slice(half)
+
+    this.layoutSide(parent, leftChildren, 'left', options, nodes, connections)
+    this.layoutSide(parent, rightChildren, 'right', options, nodes, connections)
+  }
+}
+
+export class MapUnbalancedLayout implements LayoutEngine {
+  calculate(root: MindMapNode, options?: Partial<LayoutOptions>): LayoutResult {
+    const opts = mergeOptions(options)
+    const nodes = new Map<string, NodeLayout>()
+    const connections = new Map<string, ConnectionLayout>()
+
+    const rootSize = calculateNodeSize(root)
+    const rootNode: NodeLayout = {
+      id: root.id,
+      x: 0,
+      y: 0,
+      width: rootSize.width,
+      height: rootSize.height,
+      childrenBounds: { x: 0, y: 0, width: rootSize.width, height: rootSize.height },
+    }
+    nodes.set(root.id, rootNode)
+
+    const children = getAttachedChildren(root)
+    if (children.length > 0) {
+      this.layoutChildren(rootNode, children, opts, nodes, connections)
+    }
+
+    const bounds = calculateBounds(nodes)
+    return { nodes, connections, bounds }
+  }
+
+  calculateNodeSize(node: MindMapNode): import('@y-mindmap/core').Size {
+    return calculateNodeSize(node)
+  }
+
+  calculateConnectionPath(_from: NodeLayout, _to: NodeLayout): string {
+    return ''
+  }
+
+  private layoutChildren(
+    parent: NodeLayout,
+    children: MindMapNode[],
+    options: LayoutOptions,
+    nodes: Map<string, NodeLayout>,
+    connections: Map<string, ConnectionLayout>
+  ): void {
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i]
+      if (!child) continue
+
+      const size = calculateNodeSize(child)
+      const side = i % 2 === 0 ? 'right' : 'left'
+
+      const childX = side === 'right'
+        ? parent.x + parent.width + options.horizontalSpacing
+        : parent.x - size.width - options.horizontalSpacing
+
+      const row = Math.floor(i / 2)
+      const childY = parent.y + row * (size.height + options.verticalSpacing)
+
+      const nodeLayout: NodeLayout = {
+        id: child.id,
+        x: childX,
+        y: childY,
+        width: size.width,
+        height: size.height,
+        childrenBounds: { x: childX, y: childY, width: size.width, height: size.height },
+      }
+      nodes.set(child.id, nodeLayout)
+
+      const connectionId = `${parent.id}-${child.id}`
+      const startX = side === 'right' ? parent.x + parent.width : parent.x
+      const startY = parent.y + parent.height / 2
+      const endX = side === 'right' ? childX : childX + size.width
+      const endY = childY + size.height / 2
+
+      connections.set(connectionId, {
+        id: connectionId,
+        fromId: parent.id,
+        toId: child.id,
+        path: `M ${startX} ${startY} L ${endX} ${endY}`,
+        startPoint: { x: startX, y: startY },
+        endPoint: { x: endX, y: endY },
+        controlPoints: [],
+      })
+    }
+  }
+}

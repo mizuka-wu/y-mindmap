@@ -1,0 +1,28 @@
+{
+  "name": "@y-mindmap/formats",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./xmind": "./src/xmind/index.ts",
+    "./markdown": "./src/markdown/index.ts",
+    "./png": "./src/png/index.ts",
+    "./pdf": "./src/pdf/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "5.9.2"
+  },
+  "dependencies": {
+    "@y-mindmap/core": "workspace:*",
+    "@y-mindmap/state": "workspace:*",
+    "jszip": "^3.10.1",
+    "jspdf": "^2.5.2"
+  }
+}

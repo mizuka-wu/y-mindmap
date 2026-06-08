@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Y-MindMap Demos</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f5;
+    }
+    .header {
+      background: white;
+      border-bottom: 1px solid #ddd;
+      padding: 16px 24px;
+    }
+    .header h1 {
+      font-size: 24px;
+      color: #333;
+    }
+    .nav {
+      display: flex;
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .nav a {
+      padding: 8px 16px;
+      background: #4A90D9;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .nav a:hover {
+      background: #357ABD;
+    }
+    .nav a.active {
+      background: #2C5F8A;
+    }
+    .container {
+      padding: 24px;
+    }
+    #app {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      height: calc(100vh - 150px);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Y-MindMap Demos</h1>
+    <div class="nav">
+      <a href="/" class="active">基础</a>
+      <a href="/richtext.html">富文本</a>
+      <a href="/collaboration.html">协作</a>
+      <a href="/templates.html">模板</a>
+      <a href="/themes.html">主题</a>
+      <a href="/layouts.html">布局</a>
+      <a href="/ai.html">AI</a>
+    </div>
+  </div>
+  <div class="container">
+    <div id="app"></div>
+  </div>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

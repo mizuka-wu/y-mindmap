@@ -1,0 +1,27 @@
+{
+  "name": "@y-mindmap/collab",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint . --max-warnings 0",
+    "check-types": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "5.9.2"
+  },
+  "dependencies": {
+    "@y-mindmap/core": "workspace:*",
+    "@y-mindmap/state": "workspace:*",
+    "yjs": "^13.6.0",
+    "y-protocols": "^1.0.0",
+    "lib0": "^0.2.0"
+  }
+}
