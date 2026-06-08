@@ -103,6 +103,7 @@ export class MindMapEditor {
   private binding: YDocBinding | null = null;
   private collaborators: CollaboratorManager | null = null;
   private pluginManager: PluginManager;
+  private uiContext: UIContext;
 
   constructor(options: MindMapEditorOptions) {
     this.container = options.container;
@@ -124,10 +125,10 @@ export class MindMapEditor {
     );
     this.registerDefaultHandlers();
 
-    const uiContext: UIContext = {
+    this.uiContext = {
       state: this.state,
       dispatch: (tr) => this.dispatch(tr),
-      executeCommand: (name, args) => this.executeCommand(name),
+      executeCommand: (name, args) => this.executeCommand(name, args),
       getSelection: () => this.getSelection(),
       getDocument: () => this.getDocument().root,
       getZoom: () => (this.view ? this.view.getZoom() : 1),
@@ -152,7 +153,7 @@ export class MindMapEditor {
         showStatusBar: options.showStatusBar,
         showMiniMap: options.showMiniMap,
       },
-      uiContext,
+      this.uiContext,
     );
 
     const layoutEngine = options.layoutEngine || new MapLayout();
@@ -169,6 +170,10 @@ export class MindMapEditor {
         this.executeCommand("updateTitle", { nodeId, title });
       },
       onCancel: () => {},
+      getViewportTransform: () => ({
+        zoom: this.view.getZoom(),
+        pan: this.view.getViewportController().getPan(),
+      }),
     });
 
     this.richTextInlineEditor = new RichTextInlineEditor({
@@ -177,6 +182,10 @@ export class MindMapEditor {
         this.handleRichTextUpdate(nodeId, title);
       },
       onCancel: () => {},
+      getViewportTransform: () => ({
+        zoom: this.view.getZoom(),
+        pan: this.view.getViewportController().getPan(),
+      }),
     });
 
     this.xmindImporter = new XMindImporter();
@@ -324,6 +333,7 @@ export class MindMapEditor {
   dispatch(tr: Transaction): void {
     if (this.readOnly) return;
     this.state = this.state.apply(tr);
+    this.uiContext.state = this.state;
     this.view.updateState(this.state);
     this.interactionManager.updateState(this.state);
     this.uiManager.update();
@@ -331,8 +341,11 @@ export class MindMapEditor {
   }
 
   executeCommand(name: string, args?: any): boolean {
-    return this.commandRegistry.execute(name, this.state, (tr) =>
-      this.dispatch(tr),
+    return this.commandRegistry.execute(
+      name,
+      this.state,
+      (tr) => this.dispatch(tr),
+      args,
     );
   }
 
@@ -464,7 +477,10 @@ export class MindMapEditor {
 
         case "tap":
           if (event.center) {
-            const nodeId = this.view.getNodeAtPoint(event.center);
+            const worldPoint = this.view
+              .getViewportController()
+              .screenToCanvas(event.center.x, event.center.y);
+            const nodeId = this.view.getNodeAtPoint(worldPoint);
             if (nodeId) {
               this.selectNode(nodeId);
             }
@@ -473,7 +489,10 @@ export class MindMapEditor {
 
         case "doubletap":
           if (event.center) {
-            const nodeId = this.view.getNodeAtPoint(event.center);
+            const worldPoint = this.view
+              .getViewportController()
+              .screenToCanvas(event.center.x, event.center.y);
+            const nodeId = this.view.getNodeAtPoint(worldPoint);
             if (nodeId) {
               this.startEditing(nodeId);
             }
@@ -489,9 +508,9 @@ export class MindMapEditor {
     this.commandRegistry.register("deleteNode", deleteNode());
     this.commandRegistry.register("moveNodeUp", moveNodeUp());
     this.commandRegistry.register("moveNodeDown", moveNodeDown());
-    this.commandRegistry.register("updateTitle", updateTitle("", ""));
+    this.commandRegistry.register("updateTitle", updateTitle);
     this.commandRegistry.register("toggleFold", toggleFold());
-    this.commandRegistry.register("selectNode", selectNode(""));
+    this.commandRegistry.register("selectNode", selectNode);
     this.commandRegistry.register("selectAll", selectAll());
     this.commandRegistry.register("deselectAll", deselectAll());
     this.commandRegistry.register("undo", undo());
@@ -500,11 +519,8 @@ export class MindMapEditor {
     this.commandRegistry.register("navigateDown", navigateDown());
     this.commandRegistry.register("navigateLeft", navigateLeft());
     this.commandRegistry.register("navigateRight", navigateRight());
-    this.commandRegistry.register(
-      "setStructureClass",
-      setStructureClass("", ""),
-    );
-    this.commandRegistry.register("updateStyle", updateStyle("", ""));
+    this.commandRegistry.register("setStructureClass", setStructureClass);
+    this.commandRegistry.register("updateStyle", updateStyle);
 
     this.commandRegistry.register("copy", copy());
     this.commandRegistry.register("cut", cut());
@@ -591,6 +607,23 @@ export class MindMapEditor {
     });
 
     this.container.addEventListener("pointerdown", (e) => {
+      const target = e.target as HTMLElement;
+      const nodeEl = target.closest("[data-node-id]");
+      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+
+      this.interactionManager.handleEvent({
+        type: "pointerdown",
+        target: nodeId,
+        position: { x: e.clientX, y: e.clientY },
+        modifiers: {
+          ctrl: e.ctrlKey,
+          shift: e.shiftKey,
+          alt: e.altKey,
+          meta: e.metaKey,
+        },
+        button: e.button,
+      });
+
       this.gestureRecognizer?.handlePointerDown(
         e.pointerId,
         e.clientX,
@@ -604,6 +637,22 @@ export class MindMapEditor {
     });
 
     this.container.addEventListener("pointermove", (e) => {
+      const target = e.target as HTMLElement;
+      const nodeEl = target.closest("[data-node-id]");
+      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+
+      this.interactionManager.handleEvent({
+        type: "pointermove",
+        target: nodeId,
+        position: { x: e.clientX, y: e.clientY },
+        modifiers: {
+          ctrl: e.ctrlKey,
+          shift: e.shiftKey,
+          alt: e.altKey,
+          meta: e.metaKey,
+        },
+      });
+
       this.gestureRecognizer?.handlePointerMove(
         e.pointerId,
         e.clientX,
@@ -616,6 +665,22 @@ export class MindMapEditor {
     });
 
     this.container.addEventListener("pointerup", (e) => {
+      const target = e.target as HTMLElement;
+      const nodeEl = target.closest("[data-node-id]");
+      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+
+      this.interactionManager.handleEvent({
+        type: "pointerup",
+        target: nodeId,
+        position: { x: e.clientX, y: e.clientY },
+        modifiers: {
+          ctrl: e.ctrlKey,
+          shift: e.shiftKey,
+          alt: e.altKey,
+          meta: e.metaKey,
+        },
+      });
+
       this.gestureRecognizer?.handlePointerUp(
         e.pointerId,
         e.clientX,
@@ -628,6 +693,7 @@ export class MindMapEditor {
     });
 
     this.container.addEventListener("pointercancel", (e) => {
+      this.interactionManager.handleEvent({ type: "pointercancel" });
       this.gestureRecognizer?.handlePointerCancel(e.pointerId);
     });
 
