@@ -36,7 +36,6 @@ import {
 import {
   InteractionManager,
   createSelectHandler,
-  createKeyboardHandler,
   createDragHandler,
   createZoomHandler,
   createMultiSelectHandler,
@@ -580,7 +579,6 @@ export class MindMapEditor {
 
   private registerDefaultHandlers(): void {
     this.interactionManager.addHandler(createSelectHandler());
-    this.interactionManager.addHandler(createKeyboardHandler());
     this.interactionManager.addHandler(createDragHandler());
     this.interactionManager.addHandler(createZoomHandler());
     this.interactionManager.addHandler(createMultiSelectHandler());
@@ -764,7 +762,8 @@ export class MindMapEditor {
         if (modifiers.ctrl || modifiers.meta) keyStr += "Ctrl+";
         if (modifiers.shift) keyStr += "Shift+";
         if (modifiers.alt) keyStr += "Alt+";
-        keyStr += key;
+        keyStr +=
+          key === " " ? "Space" : key.length === 1 ? key.toLowerCase() : key;
 
         const commandName = this.commandRegistry.getCommandForKey(keyStr);
         if (commandName) {
