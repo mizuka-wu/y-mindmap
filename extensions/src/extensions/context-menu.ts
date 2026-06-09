@@ -22,15 +22,10 @@ export const ContextMenu = createExtension<ContextMenuOptions>({
   setup(ctx, options) {
     if (!ctx.view) return
 
-    const view = ctx.view as any
-    if (typeof view.initContextMenu === 'function') {
-      view.initContextMenu()
-    }
+    ctx.view.initContextMenu()
 
     return () => {
-      if (typeof view.destroyContextMenu === 'function') {
-        view.destroyContextMenu()
-      }
+      ctx.view?.destroyContextMenu()
     }
   },
 })

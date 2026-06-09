@@ -16,15 +16,10 @@ export const RichTextEdit = createExtension<RichTextEditOptions>({
   setup(ctx, options) {
     if (!ctx.view) return
 
-    const view = ctx.view as any
-    if (typeof view.initRichTextEdit === 'function') {
-      view.initRichTextEdit()
-    }
+    ctx.view.initRichTextEdit()
 
     return () => {
-      if (typeof view.destroyRichTextEdit === 'function') {
-        view.destroyRichTextEdit()
-      }
+      ctx.view?.destroyRichTextEdit()
     }
   },
 })

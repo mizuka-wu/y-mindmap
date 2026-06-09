@@ -11,15 +11,10 @@ export const BoxSelect = createExtension({
   setup(ctx) {
     if (!ctx.view) return
 
-    const view = ctx.view as any
-    if (typeof view.initBoxSelect === 'function') {
-      view.initBoxSelect()
-    }
+    ctx.view.initBoxSelect()
 
     return () => {
-      if (typeof view.destroyBoxSelect === 'function') {
-        view.destroyBoxSelect()
-      }
+      ctx.view?.destroyBoxSelect()
     }
   },
 })

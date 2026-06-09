@@ -22,9 +22,8 @@ export const Clipboard = createExtension<ClipboardOptions>({
 
   setup(ctx) {
     const handler = (e: KeyboardEvent) => {
-      const view = ctx.view as any
-      const container: HTMLElement | undefined = view?.container
-      if (!container) return
+      if (!ctx.view) return
+      const container = ctx.view.container
 
       const activeEl = document.activeElement
       if (!container.contains(activeEl) && activeEl !== container) return

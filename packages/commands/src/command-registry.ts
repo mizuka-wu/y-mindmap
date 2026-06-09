@@ -29,6 +29,9 @@ export class CommandRegistry {
   private keymap: Record<string, string> = { ...DEFAULT_KEYMAP }
 
   register(name: string, command: Command): void {
+    if (this.commands.has(name)) {
+      console.warn(`[command] Command "${name}" already registered, overwriting`)
+    }
     this.commands.set(name, command)
   }
 
