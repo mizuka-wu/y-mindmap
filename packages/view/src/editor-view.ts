@@ -319,8 +319,7 @@ export class EditorView {
         }
       }
       
-      this.validateLayoutViews(root)
-      this.validatePaintViews(root)
+      this.validateViews(root)
       if (!this._isAnimating) {
         this.updateConnectionViews()
       }
@@ -332,6 +331,19 @@ export class EditorView {
       this._pendingDirtyNodeIds.clear()
     } finally {
       this._isUpdating = false
+    }
+  }
+  
+  private validateViews(node: MindMapNode): void {
+    const view = this.nodeViewFactory.getTopicView(node.id)
+    if (view) {
+      view.validate()
+    }
+    
+    for (const children of Object.values(node.children)) {
+      for (const child of children) {
+        this.validateViews(child)
+      }
     }
   }
   
@@ -395,31 +407,7 @@ export class EditorView {
     }
   }
   
-  private validateLayoutViews(node: MindMapNode): void {
-    const view = this.nodeViewFactory.getTopicView(node.id)
-    if (view) {
-      view.validateLayout()
-    }
-    
-    for (const children of Object.values(node.children)) {
-      for (const child of children) {
-        this.validateLayoutViews(child)
-      }
-    }
-  }
-  
-  private validatePaintViews(node: MindMapNode): void {
-    const view = this.nodeViewFactory.getTopicView(node.id)
-    if (view) {
-      view.validatePaint()
-    }
-    
-    for (const children of Object.values(node.children)) {
-      for (const child of children) {
-        this.validatePaintViews(child)
-      }
-    }
-  }
+
   
   private updateConnectionViews(): void {
     if (!this.state) return
@@ -427,9 +415,13 @@ export class EditorView {
     const root = this.state.doc.root
     const layoutResult = this.layoutEngine.calculate(root)
     
+    const existingConnectionIds = new Set<string>()
     for (const [connectionId, connectionLayout] of layoutResult.connections) {
+      existingConnectionIds.add(connectionId)
       const view = this.nodeViewFactory.createConnectionView(connectionId, connectionLayout)
-      this.connectionLayer.add(view.group)
+      if (!view.group.parent) {
+        this.connectionLayer.add(view.group)
+      }
       view.validate()
     }
   }

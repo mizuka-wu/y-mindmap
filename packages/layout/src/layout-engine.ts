@@ -7,6 +7,7 @@ export class MapLayoutEngine implements LayoutEngine {
   private options: LayoutOptions
   private _cache: Map<string, NodeLayout> = new Map()
   private _connectionCache: Map<string, ConnectionLayout> = new Map()
+  private _dirtySubtrees: Set<string> = new Set()
   
   constructor(options?: Partial<LayoutOptions>) {
     this.options = { ...DEFAULT_LAYOUT_OPTIONS, ...options }
@@ -15,6 +16,17 @@ export class MapLayoutEngine implements LayoutEngine {
   clearCache(): void {
     this._cache.clear()
     this._connectionCache.clear()
+    this._dirtySubtrees.clear()
+  }
+  
+  private isSubtreeDirty(nodeId: string, dirtyNodes?: Set<string>): boolean {
+    if (!dirtyNodes) return true
+    if (dirtyNodes.has(nodeId)) return true
+    return this._dirtySubtrees.has(nodeId)
+  }
+  
+  private markSubtreeDirty(nodeId: string): void {
+    this._dirtySubtrees.add(nodeId)
   }
   
   calculate(root: MindMapNode, options?: LayoutOptions, dirtyNodes?: Set<string>): LayoutResult {
@@ -30,10 +42,23 @@ export class MapLayoutEngine implements LayoutEngine {
       }
     }
     
+    if (dirtyNodes && dirtyNodes.size > 0) {
+      for (const dirtyId of dirtyNodes) {
+        this.markSubtreeDirty(dirtyId)
+      }
+    }
+    
     const nodes = new Map<string, NodeLayout>()
     const connections = new Map<string, ConnectionLayout>()
     
-    const rootLayout = this.calculateNodeLayout(root, opts)
+    const rootDirty = this.isSubtreeDirty(root.id, dirtyNodes)
+    let rootLayout: NodeLayout
+    
+    if (!rootDirty && this._cache.has(root.id)) {
+      rootLayout = { ...this._cache.get(root.id)! }
+    } else {
+      rootLayout = this.calculateNodeLayout(root, opts)
+    }
     nodes.set(root.id, rootLayout)
     
     const attachedChildren = root.attachedChildren
@@ -53,9 +78,15 @@ export class MapLayoutEngine implements LayoutEngine {
       this._connectionCache.set(id, conn)
     }
     
-    const bounds = this.calculateTotalBounds(nodes)
+    if (dirtyNodes) {
+      for (const id of dirtyNodes) {
+        this._dirtySubtrees.delete(id)
+      }
+    }
     
-    return { nodes, connections, bounds }
+    const bounds = this.calculateTotalBounds(this._cache)
+    
+    return { nodes: this._cache, connections: this._connectionCache, bounds }
   }
   
   calculateNodeSize(node: MindMapNode): Size {
@@ -156,6 +187,17 @@ export class MapLayoutEngine implements LayoutEngine {
     return height + this.options.verticalSpacing * 2
   }
   
+  private isSubtreeClean(node: MindMapNode, dirtyNodes?: Set<string>): boolean {
+    if (!dirtyNodes) return false
+    if (dirtyNodes.has(node.id)) return false
+    
+    const children = node.attachedChildren
+    for (const child of children) {
+      if (!this.isSubtreeClean(child, dirtyNodes)) return false
+    }
+    return true
+  }
+  
   private calculateSide(
     rootNode: MindMapNode,
     children: MindMapNode[],
@@ -169,47 +211,81 @@ export class MapLayoutEngine implements LayoutEngine {
     
     const rootLayout = nodes.get(rootNode.id)!
     const childLayouts: NodeLayout[] = []
+    const needsReposition = dirtyNodes ? this.isSubtreeDirty(rootNode.id, dirtyNodes) : true
     
     for (const child of children) {
       let childLayout: NodeLayout
+      const childDirty = dirtyNodes ? this.isSubtreeDirty(child.id, dirtyNodes) : true
       
-      if (dirtyNodes && !dirtyNodes.has(child.id) && this._cache.has(child.id)) {
+      if (!childDirty && this._cache.has(child.id)) {
         childLayout = { ...this._cache.get(child.id)! }
+        nodes.set(child.id, childLayout)
+        
+        if (child.children && child.children.length > 0) {
+          this.copyCachedDescendants(child, nodes, connections)
+        }
       } else {
         childLayout = this.calculateNodeLayout(child, options)
-      }
-      
-      childLayouts.push(childLayout)
-      nodes.set(child.id, childLayout)
-      
-      if (child.children && child.children.length > 0) {
-        this.calculateDescendants(child, childLayout, side, nodes, connections, options, dirtyNodes)
+        childLayouts.push(childLayout)
+        nodes.set(child.id, childLayout)
+        
+        if (child.children && child.children.length > 0) {
+          this.calculateDescendants(child, childLayout, side, nodes, connections, options, dirtyNodes)
+        }
       }
     }
     
-    this.positionChildren(rootLayout, childLayouts, side, options)
+    if (needsReposition && childLayouts.length > 0) {
+      this.positionChildren(rootLayout, childLayouts, side, options)
+    }
     
     for (const child of children) {
       const childLayout = nodes.get(child.id)!
       const connectionId = `${rootNode.id}-${child.id}`
-      connections.set(connectionId, {
-        id: connectionId,
-        fromId: rootNode.id,
-        toId: child.id,
-        path: this.calculateConnectionPath(rootLayout, childLayout),
-        startPoint: {
-          x: side === 'right' ? rootLayout.x + rootLayout.width : rootLayout.x,
-          y: rootLayout.y + rootLayout.height / 2,
-        },
-        endPoint: {
-          x: side === 'right' ? childLayout.x : childLayout.x + childLayout.width,
-          y: childLayout.y + childLayout.height / 2,
-        },
-        controlPoints: [],
-      })
+      
+      if (!connections.has(connectionId) || needsReposition) {
+        connections.set(connectionId, {
+          id: connectionId,
+          fromId: rootNode.id,
+          toId: child.id,
+          path: this.calculateConnectionPath(rootLayout, childLayout),
+          startPoint: {
+            x: side === 'right' ? rootLayout.x + rootLayout.width : rootLayout.x,
+            y: rootLayout.y + rootLayout.height / 2,
+          },
+          endPoint: {
+            x: side === 'right' ? childLayout.x : childLayout.x + childLayout.width,
+            y: childLayout.y + childLayout.height / 2,
+          },
+          controlPoints: [],
+        })
+      }
     }
     
-    return this.calculateBoundsFromLayouts(childLayouts)
+    return this.calculateBoundsFromLayouts(childLayouts.length > 0 ? childLayouts : Array.from(nodes.values()).filter(n => children.some(c => c.id === n.id)))
+  }
+  
+  private copyCachedDescendants(
+    parentNode: MindMapNode,
+    nodes: Map<string, NodeLayout>,
+    connections: Map<string, ConnectionLayout>
+  ): void {
+    const children = parentNode.attachedChildren
+    for (const child of children) {
+      if (this._cache.has(child.id)) {
+        const childLayout = { ...this._cache.get(child.id)! }
+        nodes.set(child.id, childLayout)
+        
+        const connectionId = `${parentNode.id}-${child.id}`
+        if (this._connectionCache.has(connectionId)) {
+          connections.set(connectionId, this._connectionCache.get(connectionId)!)
+        }
+        
+        if (child.hasChildren) {
+          this.copyCachedDescendants(child, nodes, connections)
+        }
+      }
+    }
   }
   
   private calculateDescendants(
@@ -228,41 +304,51 @@ export class MapLayoutEngine implements LayoutEngine {
     
     for (const child of children) {
       let childLayout: NodeLayout
+      const childDirty = dirtyNodes ? this.isSubtreeDirty(child.id, dirtyNodes) : true
       
-      if (dirtyNodes && !dirtyNodes.has(child.id) && this._cache.has(child.id)) {
+      if (!childDirty && this._cache.has(child.id)) {
         childLayout = { ...this._cache.get(child.id)! }
+        nodes.set(child.id, childLayout)
+        
+        if (child.hasChildren) {
+          this.copyCachedDescendants(child, nodes, connections)
+        }
       } else {
         childLayout = this.calculateNodeLayout(child, options)
-      }
-      
-      childLayouts.push(childLayout)
-      nodes.set(child.id, childLayout)
-      
-      if (child.hasChildren) {
-        this.calculateDescendants(child, childLayout, side, nodes, connections, options, dirtyNodes)
+        childLayouts.push(childLayout)
+        nodes.set(child.id, childLayout)
+        
+        if (child.hasChildren) {
+          this.calculateDescendants(child, childLayout, side, nodes, connections, options, dirtyNodes)
+        }
       }
     }
     
-    this.positionChildren(parentLayout, childLayouts, side, options)
+    if (childLayouts.length > 0) {
+      this.positionChildren(parentLayout, childLayouts, side, options)
+    }
     
     for (const child of children) {
       const childLayout = nodes.get(child.id)!
       const connectionId = `${parentNode.id}-${child.id}`
-      connections.set(connectionId, {
-        id: connectionId,
-        fromId: parentNode.id,
-        toId: child.id,
-        path: this.calculateConnectionPath(parentLayout, childLayout),
-        startPoint: {
-          x: side === 'right' ? parentLayout.x + parentLayout.width : parentLayout.x,
-          y: parentLayout.y + parentLayout.height / 2,
-        },
-        endPoint: {
-          x: side === 'right' ? childLayout.x : childLayout.x + childLayout.width,
-          y: childLayout.y + childLayout.height / 2,
-        },
-        controlPoints: [],
-      })
+      
+      if (!connections.has(connectionId)) {
+        connections.set(connectionId, {
+          id: connectionId,
+          fromId: parentNode.id,
+          toId: child.id,
+          path: this.calculateConnectionPath(parentLayout, childLayout),
+          startPoint: {
+            x: side === 'right' ? parentLayout.x + parentLayout.width : parentLayout.x,
+            y: parentLayout.y + parentLayout.height / 2,
+          },
+          endPoint: {
+            x: side === 'right' ? childLayout.x : childLayout.x + childLayout.width,
+            y: childLayout.y + childLayout.height / 2,
+          },
+          controlPoints: [],
+        })
+      }
     }
   }
   

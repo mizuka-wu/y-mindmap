@@ -12,6 +12,7 @@ interface RGBA {
 
 export class StyleManager {
   private static instance: StyleManager
+  private _styleCache: WeakMap<NodeView, Map<StyleKey, any>> = new WeakMap()
 
   static getInstance(): StyleManager {
     if (!StyleManager.instance) {
@@ -21,25 +22,52 @@ export class StyleManager {
   }
 
   getStyleValue(nodeView: NodeView, key: StyleKey): any {
-    // 1. Try node's own style
+    const cached = this._styleCache.get(nodeView)
+    if (cached?.has(key)) {
+      return cached.get(key)
+    }
+
     const sourceNode = this.getStyleSourceNode(nodeView)
     if (sourceNode) {
       const style = sourceNode.getNode().style
       if (style?.properties) {
         const value = style.properties[key]
-        if (value !== undefined) return value
+        if (value !== undefined) {
+          this.setCacheEntry(nodeView, key, value)
+          return value
+        }
       }
     }
 
-    // 2. Try theme style based on node level
     const level = this.getNodeLevel(nodeView)
     if (level) {
       const themeValue = themeManager.getThemeStyleValue(level, key)
-      if (themeValue !== undefined) return themeValue
+      if (themeValue !== undefined) {
+        this.setCacheEntry(nodeView, key, themeValue)
+        return themeValue
+      }
     }
 
-    // 3. Fall back to default
-    return this.getDefaultStyleValue(key)
+    const defaultValue = this.getDefaultStyleValue(key)
+    this.setCacheEntry(nodeView, key, defaultValue)
+    return defaultValue
+  }
+
+  private setCacheEntry(nodeView: NodeView, key: StyleKey, value: any): void {
+    let cache = this._styleCache.get(nodeView)
+    if (!cache) {
+      cache = new Map()
+      this._styleCache.set(nodeView, cache)
+    }
+    cache.set(key, value)
+  }
+
+  invalidateCache(nodeView: NodeView): void {
+    this._styleCache.delete(nodeView)
+  }
+
+  invalidateAllCache(): void {
+    this._styleCache = new WeakMap()
   }
 
   getStyleValueOrDefault(nodeView: NodeView, key: StyleKey, defaultValue: any): any {

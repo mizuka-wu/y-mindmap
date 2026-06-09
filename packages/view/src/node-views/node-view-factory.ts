@@ -50,6 +50,7 @@ export enum NodeViewType {
 
 export class NodeViewFactory {
   private viewCaches: Map<NodeViewType, Map<string, NodeView>> = new Map()
+  private _disposedViews: WeakSet<NodeView> = new WeakSet()
   
   constructor() {
     for (const type of Object.values(NodeViewType)) {
@@ -207,6 +208,7 @@ export class NodeViewFactory {
     
     const view = cache.get(key)
     if (view) {
+      this._disposedViews.add(view)
       view.destroy()
       cache.delete(key)
     }
@@ -215,6 +217,7 @@ export class NodeViewFactory {
   clear(): void {
     for (const cache of this.viewCaches.values()) {
       for (const view of cache.values()) {
+        this._disposedViews.add(view)
         view.destroy()
       }
       cache.clear()
@@ -226,9 +229,20 @@ export class NodeViewFactory {
     if (!cache) return
     
     for (const view of cache.values()) {
+      this._disposedViews.add(view)
       view.destroy()
     }
     cache.clear()
+  }
+  
+  cleanupDisposedViews(): void {
+    for (const [type, cache] of this.viewCaches) {
+      for (const [key, view] of cache) {
+        if (view.isDisposed()) {
+          cache.delete(key)
+        }
+      }
+    }
   }
   
   getViewCount(type?: NodeViewType): number {
@@ -265,6 +279,7 @@ export class NodeViewFactory {
       
       for (const [key, view] of cache) {
         if (key === nodeId || key.startsWith(`${nodeId}-`)) {
+          this._disposedViews.add(view)
           view.destroy()
           keysToDelete.push(key)
         }

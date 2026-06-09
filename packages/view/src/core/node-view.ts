@@ -184,8 +184,18 @@ export abstract class NodeView {
     }
   }
   
+  private _reusableSize: Size = { width: 0, height: 0 }
+  private _reusablePosition: Position = { x: 0, y: 0 }
+  private _reusableBounds: Bounds = { x: 0, y: 0, width: 0, height: 0 }
+
   getSize(): Size {
     return { ...this._size }
+  }
+  
+  getSizeRef(): Size {
+    this._reusableSize.width = this._size.width
+    this._reusableSize.height = this._size.height
+    return this._reusableSize
   }
   
   setSize(size: Size, forceUpdate = false): void {
@@ -195,7 +205,8 @@ export abstract class NodeView {
       return
     }
     
-    this._size = { ...size }
+    this._size.width = size.width
+    this._size.height = size.height
     this._dirtyFlags |= DirtyFlag.SIZE
     this.invalidateLayout()
   }
@@ -215,12 +226,19 @@ export abstract class NodeView {
     return { ...this._position }
   }
   
+  getPositionRef(): Position {
+    this._reusablePosition.x = this._position.x
+    this._reusablePosition.y = this._position.y
+    return this._reusablePosition
+  }
+  
   setPosition(position: Position): void {
     if (this._position.x === position.x && this._position.y === position.y) {
       return
     }
     
-    this._position = { ...position }
+    this._position.x = position.x
+    this._position.y = position.y
     this._dirtyFlags |= DirtyFlag.POSITION
     
     this.group.x = position.x
@@ -330,6 +348,14 @@ export abstract class NodeView {
       width: this._size.width,
       height: this._size.height,
     }
+  }
+  
+  getBoundsRef(): Bounds {
+    this._reusableBounds.x = this._position.x
+    this._reusableBounds.y = this._position.y
+    this._reusableBounds.width = this._size.width
+    this._reusableBounds.height = this._size.height
+    return this._reusableBounds
   }
   
   getContentBounds(): Bounds {
