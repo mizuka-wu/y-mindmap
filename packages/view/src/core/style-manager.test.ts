@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { StyleManager } from './style-manager'
 import { StyleKey, DEFAULT_TOPIC_STYLE, DEFAULT_CONNECTION_STYLE } from '@y-mindmap/core'
 import type { NodeView } from './node-view'
+import type { MindMapNode } from '@y-mindmap/state'
 
 vi.mock('./theme-manager', () => ({
   themeManager: {
@@ -15,7 +16,7 @@ function createMockNodeView(overrides: Partial<NodeView> = {}): NodeView {
       id: 'test-node',
       type: 'attached',
       style: null,
-    }),
+    } as unknown as MindMapNode),
     getParent: () => null,
     ...overrides,
   } as unknown as NodeView
@@ -39,7 +40,7 @@ describe('StyleManager', () => {
               [StyleKey.FILL_COLOR]: '#ff0000',
             },
           },
-        }),
+        } as unknown as MindMapNode),
       })
 
       const value = styleManager.getStyleValue(nodeView, StyleKey.FILL_COLOR)
@@ -107,7 +108,7 @@ describe('StyleManager', () => {
               [StyleKey.FILL_COLOR]: 'none',
             },
           },
-        }),
+        } as unknown as MindMapNode),
       })
 
       const result = styleManager.computeVisualFillColor(nodeView)
@@ -124,7 +125,7 @@ describe('StyleManager', () => {
               [StyleKey.FILL_COLOR]: '#ff0000',
             },
           },
-        }),
+        } as unknown as MindMapNode),
       })
 
       const result = styleManager.computeVisualFillColor(nodeView)
@@ -141,7 +142,7 @@ describe('StyleManager', () => {
               [StyleKey.FILL_COLOR]: 'rgba(255, 0, 0, 0.5)',
             },
           },
-        }),
+        } as unknown as MindMapNode),
       })
 
       const result = styleManager.computeVisualFillColor(nodeView, '#ffffff')
@@ -161,7 +162,7 @@ describe('StyleManager', () => {
               [StyleKey.FILL_COLOR]: '#custom',
             },
           },
-        }),
+        } as unknown as MindMapNode),
       })
 
       const value = styleManager.getStyleValueOrDefault(nodeView, StyleKey.FILL_COLOR, '#default')

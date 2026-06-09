@@ -29,7 +29,7 @@ function createMockMindMapNode(id: string = 'test'): MindMapNode {
 }
 
 class TestNodeView extends NodeView {
-  private _preferredSize: Size = { width: 100, height: 40 }
+  protected _preferredSize: Size = { width: 100, height: 40 }
 
   protected initialize(): void {}
 
