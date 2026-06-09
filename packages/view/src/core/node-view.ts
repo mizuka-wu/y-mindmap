@@ -57,6 +57,7 @@ export abstract class NodeView {
   protected _opacity: number = 1
   protected _isDisposed: boolean = false
   protected _isSelected: boolean = false
+  protected _isHovered: boolean = false
   
   protected _parent: NodeView | null = null
   protected _children: NodeView[] = []
@@ -288,6 +289,16 @@ export abstract class NodeView {
     this._isSelected = selected
     this.invalidatePaint()
   }
+
+  isHovered(): boolean {
+    return this._isHovered
+  }
+
+  setHovered(hovered: boolean): void {
+    if (this._isHovered === hovered) return
+    this._isHovered = hovered
+    this.invalidatePaint()
+  }
   
   isDisposed(): boolean {
     return this._isDisposed
@@ -360,6 +371,26 @@ export abstract class NodeView {
   
   getContentBounds(): Bounds {
     return this.getBounds()
+  }
+
+  /**
+   * Get bounds in absolute (world) coordinates by walking up the parent chain.
+   */
+  getAbsoluteBounds(): Bounds {
+    let x = this._position.x
+    let y = this._position.y
+    let parent = this._parent
+    while (parent) {
+      x += parent._position.x
+      y += parent._position.y
+      parent = parent._parent
+    }
+    return {
+      x,
+      y,
+      width: this._size.width,
+      height: this._size.height,
+    }
   }
   
   animatePosition(

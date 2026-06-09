@@ -66,6 +66,7 @@ export class EditorView {
   private _themeUnsubscribe: (() => void) | null = null
   
   private _editingNodeId: string | null = null
+  private _hoveredNodeId: string | null = null
   private _editOverlay: HTMLElement | null = null
   private _editToolbar: HTMLElement | null = null
   private _onTitleUpdate: ((nodeId: string, title: string) => void) | null = null
@@ -683,14 +684,70 @@ export class EditorView {
 
   private initPointerHandling(): void {
     this.container.addEventListener('pointerdown', this._onPointerDown)
+    this.container.addEventListener('pointermove', this._onPointerHover)
+    this.container.addEventListener('pointerleave', this._onPointerLeave)
   }
 
   private destroyPointerHandling(): void {
     this.container.removeEventListener('pointerdown', this._onPointerDown)
+    this.container.removeEventListener('pointermove', this._onPointerHover)
+    this.container.removeEventListener('pointerleave', this._onPointerLeave)
     document.removeEventListener('pointermove', this._onPointerMove)
     document.removeEventListener('pointerup', this._onPointerUp)
     document.removeEventListener('pointermove', this._onBoxSelectMove)
     document.removeEventListener('pointerup', this._onBoxSelectUp)
+  }
+
+  private _onPointerHover = (e: PointerEvent): void => {
+    const worldPoint = this.clientToWorld(e.clientX, e.clientY)
+    const nodeId = this._findNodeIdAtPoint(worldPoint)
+
+    if (nodeId !== this._hoveredNodeId) {
+      // Remove previous hover
+      if (this._hoveredNodeId) {
+        const prevView = this.nodeViewFactory.getTopicView(this._hoveredNodeId)
+        if (prevView && !prevView.isSelected()) {
+          prevView.setHovered(false)
+        }
+      }
+      // Apply new hover
+      this._hoveredNodeId = nodeId
+      if (nodeId) {
+        const view = this.nodeViewFactory.getTopicView(nodeId)
+        if (view && !view.isSelected()) {
+          view.setHovered(true)
+        }
+        this.container.style.cursor = 'pointer'
+      } else {
+        this.container.style.cursor = 'default'
+      }
+    }
+  }
+
+  private _onPointerLeave = (): void => {
+    if (this._hoveredNodeId) {
+      const prevView = this.nodeViewFactory.getTopicView(this._hoveredNodeId)
+      if (prevView) {
+        prevView.setHovered(false)
+      }
+      this._hoveredNodeId = null
+    }
+    this.container.style.cursor = 'default'
+  }
+
+  private _findNodeIdAtPoint(worldPoint: { x: number; y: number }): string | null {
+    // Walk node views to find which one contains the point
+    for (const [id, view] of this.nodeViewFactory.getAllTopicViews()) {
+      if (view.isVisible() && !view.isForcedInvisible()) {
+        const bounds = view.getBounds()
+        const absBounds = view.getAbsoluteBounds()
+        if (worldPoint.x >= absBounds.x && worldPoint.x <= absBounds.x + absBounds.width &&
+            worldPoint.y >= absBounds.y && worldPoint.y <= absBounds.y + absBounds.height) {
+          return id
+        }
+      }
+    }
+    return null
   }
 
   initContextMenu(): void {

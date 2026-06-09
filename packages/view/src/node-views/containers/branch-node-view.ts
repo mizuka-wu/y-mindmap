@@ -6,6 +6,7 @@ import { StyleKey, DEFAULT_CONNECTION_STYLE, TopicType } from '@y-mindmap/core'
 import { BoundaryNodeView } from './boundary-node-view'
 import { SummaryNodeView } from './summary-node-view'
 import { ConnectionNodeView } from '../connection-node-view'
+import { CollapseExpandNodeView } from '../interactions/interaction-node-views'
 import { Easing, type EasingFunction } from '@y-mindmap/layout'
 
 export type ChildType = 'attached' | 'detached' | 'summary' | 'callout'
@@ -40,6 +41,7 @@ export class BranchNodeView extends NodeView {
   private _boundaries: BoundaryNodeView[] = []
   private _summaries: SummaryNodeView[] = []
   private _connectionView: ConnectionNodeView | null = null
+  private _collapseButton: CollapseExpandNodeView | null = null
 
   private _eventListeners: Array<() => void> = []
 
@@ -49,6 +51,7 @@ export class BranchNodeView extends NodeView {
 
   protected initialize(): void {
     this._initConnectionView()
+    this._initCollapseButton()
     this._initEventListeners()
   }
 
@@ -56,6 +59,18 @@ export class BranchNodeView extends NodeView {
     this._connectionView = new ConnectionNodeView(this._node)
     this._connectionView.setParent(this)
     this.group.add(this._connectionView.group)
+  }
+
+  private _initCollapseButton(): void {
+    this._collapseButton = new CollapseExpandNodeView(this._node)
+    this._collapseButton.setParent(this)
+    this._collapseButton.setCollapsed(this._isCollapsed)
+    this.group.add(this._collapseButton.group)
+
+    // Click handler: toggle collapse on click
+    this._collapseButton.group.on('tap', () => {
+      this.setCollapsed(!this._isCollapsed, true)
+    })
   }
 
   private _initEventListeners(): void {
@@ -90,6 +105,29 @@ export class BranchNodeView extends NodeView {
       child.setSize(childSize)
       currentY += childSize.height
     }
+
+    // Position collapse button at the right edge of topic view
+    this._updateCollapseButtonPosition()
+    this._updateCollapseButtonVisibility()
+  }
+
+  private _updateCollapseButtonPosition(): void {
+    if (!this._collapseButton || !this._topicView) return
+    const topicSize = this._topicView.getSize()
+    const btnSize = { width: 16, height: 16 }
+    // Position at the right edge of the topic, vertically centered
+    const x = topicSize.width + 2
+    const y = (topicSize.height - btnSize.height) / 2
+    this._collapseButton.setPosition({ x, y })
+    this._collapseButton.setSize(btnSize)
+  }
+
+  private _updateCollapseButtonVisibility(): void {
+    if (!this._collapseButton) return
+    const hasChildren = this._attachedChildren.length > 0 ||
+      this._detachedChildren.length > 0
+    this._collapseButton.setVisible(hasChildren)
+    this._collapseButton.setCollapsed(this._isCollapsed)
   }
 
   protected applyPaint(): void {
@@ -185,6 +223,9 @@ export class BranchNodeView extends NodeView {
   async setCollapsed(collapsed: boolean, animate: boolean = true): Promise<void> {
     if (this._isCollapsed === collapsed) return
     this._isCollapsed = collapsed
+
+    // Sync collapse button visual state
+    this._collapseButton?.setCollapsed(collapsed)
     
     if (animate) {
       await this._animateCollapseExpand(collapsed)

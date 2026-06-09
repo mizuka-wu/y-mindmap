@@ -161,8 +161,15 @@ export class TopicNodeView extends TitleableView {
       }
     } else {
       this.hideSelectBox()
-      if (this.shape && (this.shape instanceof Rect || this.shape instanceof Ellipse || this.shape instanceof Path)) {
-        this.shape.setAttr('shadow', undefined)
+      // Hover: lighter highlight
+      if (this._isHovered) {
+        if (this.shape && (this.shape instanceof Rect || this.shape instanceof Ellipse || this.shape instanceof Path)) {
+          this.shape.setAttr('shadow', { x: 0, y: 0, blur: 4, color: '#4A90D940' })
+        }
+      } else {
+        if (this.shape && (this.shape instanceof Rect || this.shape instanceof Ellipse || this.shape instanceof Path)) {
+          this.shape.setAttr('shadow', undefined)
+        }
       }
     }
 
