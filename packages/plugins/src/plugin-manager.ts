@@ -33,6 +33,10 @@ export class PluginManager {
     this.dialogHandler = dialogHandler || null
   }
 
+  updateState(state: EditorState): void {
+    this.editorState = state
+  }
+
   register(plugin: Plugin): void {
     if (this.plugins.has(plugin.id)) {
       throw new Error(`Plugin ${plugin.id} is already registered`)
@@ -52,6 +56,8 @@ export class PluginManager {
       const api = this.createAPI(plugin.id)
       plugin.init(api)
     }
+
+    this.emit('plugin:register', plugin)
   }
 
   unregister(pluginId: string): void {
@@ -84,6 +90,7 @@ export class PluginManager {
     }
 
     this.activePlugins.add(pluginId)
+    this.emit('plugin:activate', pluginId)
   }
 
   deactivate(pluginId: string): void {
@@ -103,6 +110,7 @@ export class PluginManager {
     }
 
     this.activePlugins.delete(pluginId)
+    this.emit('plugin:deactivate', pluginId)
   }
 
   getPlugin(pluginId: string): Plugin | undefined {

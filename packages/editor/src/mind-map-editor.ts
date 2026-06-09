@@ -408,6 +408,8 @@ export class MindMapEditor {
     this.interactionManager.updateState(this.state);
     this.uiManager.update();
     this.syncTransactionToYDoc(tr);
+    this.pluginManager.updateState(this.state);
+    this.emitTransactionEvents(tr);
   }
 
   executeCommand(name: string, args?: any): boolean {
@@ -426,6 +428,8 @@ export class MindMapEditor {
     this.view.updateState(this.state);
     this.interactionManager.updateState(this.state);
     this.uiManager.update();
+    this.pluginManager.updateState(this.state);
+    this.emitPluginEvent('document:load', doc);
   }
 
   async loadXMindFile(file: File): Promise<any> {
@@ -897,6 +901,44 @@ export class MindMapEditor {
 
   emitPluginEvent(event: PluginEvent, ...args: any[]): void {
     this.pluginManager.emit(event, ...args);
+  }
+
+  private emitTransactionEvents(tr: Transaction): void {
+    for (const step of tr.steps) {
+      switch (step.type) {
+        case 'addNode':
+          this.emitPluginEvent('node:create', step.node)
+          break
+        case 'removeNode':
+          this.emitPluginEvent('node:delete', step.id)
+          break
+        case 'updateNode': {
+          const oldNode = tr.beforeDoc.getNodeById(step.id)
+          const newNode = tr.doc.getNodeById(step.id)
+          if (oldNode && newNode) {
+            if (oldNode.isFolded !== newNode.isFolded) {
+              this.emitPluginEvent(newNode.isFolded ? 'node:fold' : 'node:unfold', newNode)
+            } else {
+              this.emitPluginEvent('node:update', step.id)
+            }
+          }
+          break
+        }
+        case 'moveNode':
+          this.emitPluginEvent('node:move', step.nodeId)
+          break
+        case 'setSelection': {
+          const all = this.state.selection.all
+          if (all.length > 0) {
+            this.emitPluginEvent('node:select', all)
+          } else {
+            this.emitPluginEvent('node:deselect')
+          }
+          break
+        }
+      }
+    }
+    this.emitPluginEvent('document:change', tr)
   }
 
   destroy(): void {

@@ -1,7 +1,7 @@
 import { TopicData, StructureType, Point } from '@y-mindmap/core'
 import { EditorState, Transaction, MindMapDocument, MindMapNode } from '@y-mindmap/state'
 
-export type PluginEvent = 
+export type PluginEvent =
   | 'document:load'
   | 'document:save'
   | 'document:change'
@@ -22,6 +22,9 @@ export type PluginEvent =
   | 'collab:join'
   | 'collab:leave'
   | 'collab:conflict'
+  | 'plugin:register'
+  | 'plugin:activate'
+  | 'plugin:deactivate'
 
 export type PluginEventHandler = (...args: any[]) => void
 
