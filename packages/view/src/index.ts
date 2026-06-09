@@ -44,3 +44,8 @@ export { MatrixNodeView, MatrixCellNodeView, TreeTableCellNodeView } from './nod
 export { FishBoneHeadLineNodeView, FishBoneMainLineNodeView, TimelineMainLineNodeView } from './node-views/special/fishbone-timeline-node-views'
 
 export { PlaceholderTopicNodeView, SheetNodeView } from './node-views/advanced/advanced-node-views'
+
+export { Minimap } from './minimap'
+export type { MinimapConfig } from './minimap'
+export { ZoomControls } from './zoom-controls'
+export type { ZoomControlsConfig } from './zoom-controls'

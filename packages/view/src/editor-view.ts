@@ -14,6 +14,8 @@ import type { ThemeData, Point } from '@y-mindmap/core'
 import { StyleKey, DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
 import { styleManager } from './core/style-manager'
 import { DragPreviewView, DropIndicatorView, DropPosition, DropTarget } from './node-views/interactions/drag-node-views'
+import { Minimap, type MinimapConfig } from './minimap'
+import { ZoomControls, type ZoomControlsConfig } from './zoom-controls'
 
 export interface EditorViewConfig {
   container: HTMLElement
@@ -22,6 +24,10 @@ export interface EditorViewConfig {
   enableAnimations?: boolean
   animationDuration?: number
   onTitleUpdate?: (nodeId: string, title: string) => void
+  showMiniMap?: boolean
+  miniMapConfig?: MinimapConfig
+  showZoomControls?: boolean
+  zoomControlsConfig?: ZoomControlsConfig
 }
 
 export class EditorView {
@@ -75,6 +81,11 @@ export class EditorView {
   private _boxSelectStartPoint: Point | null = null
   private _boxSelectRect: Rect | null = null
   private _isBoxSelecting: boolean = false
+
+  private _minimap: Minimap | null = null
+  private _minimapContainer: HTMLElement | null = null
+  private _zoomControls: ZoomControls | null = null
+  private _zoomControlsContainer: HTMLElement | null = null
   
   constructor(config: EditorViewConfig) {
     this.container = config.container
@@ -107,11 +118,59 @@ export class EditorView {
     
     this.initDragHandling()
     
+    if (config.showMiniMap !== false) {
+      this._createMiniMap(config.miniMapConfig)
+    }
+    
+    if (config.showZoomControls !== false) {
+      this._createZoomControls(config.zoomControlsConfig)
+    }
+    
     if (config.state) {
       this.setState(config.state)
     }
   }
-  
+
+  private _createMiniMap(config?: MinimapConfig): void {
+    this._minimapContainer = document.createElement('div')
+    this._minimapContainer.style.cssText = `
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      z-index: 10;
+    `
+    this.container.appendChild(this._minimapContainer)
+
+    this._minimap = new Minimap(this._minimapContainer, {
+      getDocument: () => this.state?.doc.root ?? null,
+      getNodeBounds: (nodeId) => this.getNodeBounds(nodeId),
+      getSelectedNodeIds: () => this.getSelection(),
+      getViewportBounds: () => this.getViewportBounds(),
+      getZoom: () => this.getZoom(),
+      panTo: (x, y) => this.panTo(x, y),
+      zoomTo: (level) => this.zoomTo(level),
+    }, config)
+  }
+
+  private _createZoomControls(config?: ZoomControlsConfig): void {
+    this._zoomControlsContainer = document.createElement('div')
+    this._zoomControlsContainer.style.cssText = `
+      position: absolute;
+      bottom: 12px;
+      right: ${this._minimap ? '224px' : '12px'};
+      z-index: 10;
+    `
+    this.container.appendChild(this._zoomControlsContainer)
+
+    this._zoomControls = new ZoomControls(this._zoomControlsContainer, {
+      getZoom: () => this.getZoom(),
+      zoomTo: (level) => this.zoomTo(level),
+      zoomIn: () => this.zoomIn(),
+      zoomOut: () => this.zoomOut(),
+      fitToContent: () => this.fitToContent(),
+    }, config)
+  }
+
   setState(state: EditorState): void {
     this.state = state
     this.scheduleUpdate()
@@ -267,6 +326,8 @@ export class EditorView {
       }
       this.updateRelationshipViews()
       this.updateSelection()
+      this._minimap?.update()
+      this._zoomControls?.update()
       
       this._pendingDirtyNodeIds.clear()
     } finally {
@@ -1219,6 +1280,16 @@ export class EditorView {
     if (this._editingNodeId) {
       this.stopEditing(false)
     }
+
+    this._minimap?.destroy()
+    this._minimapContainer?.remove()
+    this._minimap = null
+    this._minimapContainer = null
+
+    this._zoomControls?.destroy()
+    this._zoomControlsContainer?.remove()
+    this._zoomControls = null
+    this._zoomControlsContainer = null
 
     if (this._themeUnsubscribe) {
       this._themeUnsubscribe()
