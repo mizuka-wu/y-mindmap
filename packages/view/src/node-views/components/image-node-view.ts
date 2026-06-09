@@ -1,7 +1,7 @@
 import { Rect, Image as LeaferImage, Group } from 'leafer-ui'
 import { NodeView, Size, Bounds } from '../../core/node-view'
 import type { MindMapNode, ImageData } from '@y-mindmap/state'
-import type { StyleData, MarkerData, ImageData, ConnectionLayout, RelationshipData } from '@y-mindmap/core'
+import type { StyleData } from '@y-mindmap/core'
 import { DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
 
 export class ImageNodeView extends NodeView {

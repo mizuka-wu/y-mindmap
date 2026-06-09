@@ -1,5 +1,5 @@
 import type { MindMapNode, ConnectionLayout, MarkerData, ImageData, RelationshipData } from '@y-mindmap/state'
-import type { StyleData, MarkerData, ImageData, ConnectionLayout, RelationshipData } from '@y-mindmap/core'
+import type { StyleData } from '@y-mindmap/core'
 import { DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
 import { NodeView } from '../core/node-view'
 import { TopicNodeView } from './topic-node-view'

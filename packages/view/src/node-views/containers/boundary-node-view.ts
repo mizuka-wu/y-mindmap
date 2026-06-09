@@ -25,6 +25,7 @@ export class BoundaryNodeView extends NodeView {
       strokeWidth: this._borderWidth,
       cornerRadius: 8,
       dashPattern: this.getDashPattern(),
+      opacity: this._fillOpacity,
     })
     this.group.add(this.boundaryElement)
   }
@@ -62,6 +63,7 @@ export class BoundaryNodeView extends NodeView {
         this.boundaryElement.fill = this._fillColor
         this.boundaryElement.strokeWidth = this._borderWidth
         this.boundaryElement.dashPattern = this.getDashPattern()
+        this.boundaryElement.opacity = this._fillOpacity
       }
     }
   }
@@ -118,6 +120,7 @@ export class BoundaryNodeView extends NodeView {
         fill: this._fillColor,
         stroke: this._lineColor,
         strokeWidth: this._borderWidth,
+        opacity: this._fillOpacity,
       })
       this.group.add(this.boundaryElement)
     } else {

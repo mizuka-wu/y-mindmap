@@ -1,19 +1,20 @@
 import { Group, Rect, Ellipse, Path, Text } from 'leafer-ui'
 import type { MindMapNode } from '@y-mindmap/state'
 import { StyleKey, DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
-import type { StyleData } from '@y-mindmap/core'
+import type { StyleData, MarkerData } from '@y-mindmap/core'
 import { NodeView, Size, Bounds } from '../core/node-view'
 import { styleManager } from '../core/style-manager'
 import { ShapeFactory } from '../shapes/shape-factory'
 import { createWrappedText } from '../utils/text-utils'
 import type { BranchNodeView } from './containers/branch-node-view'
+import { MarkerNodeView, MarkersNodeView } from './components/marker-node-view'
 
 export class TopicNodeView extends NodeView {
   private shape: Rect | Ellipse | Path | null = null
   private titleText: Text | Group | null = null
   private expandButton: Group | null = null
   private selectBox: Rect | null = null
-  private markerViews: Group[] = []
+  private markerViews: NodeView[] = []
   private imageContainer: Group | null = null
   private _owningBranch: BranchNodeView | null = null
   private _shapeClass: string = 'roundedRect'
@@ -192,47 +193,16 @@ export class TopicNodeView extends NodeView {
   
   private renderMarkers(): void {
     for (const view of this.markerViews) {
-      view.remove()
+      view.group.remove()
     }
     this.markerViews = []
     
-    if (!this._node.markers) return
+    if (!this._node.markers || this._node.markers.length === 0) return
     
-    let offsetX = 8
-    const offsetY = 8
-    
-    for (const marker of this._node.markers) {
-      const markerView = this.createMarkerView(marker)
-      if (markerView) {
-        markerView.x = offsetX
-        markerView.y = offsetY
-        this.group.add(markerView)
-        this.markerViews.push(markerView)
-        offsetX += 24
-      }
-    }
-  }
-  
-  private createMarkerView(marker: any): Group | null {
-    const view = new Group()
-    const icon = new Text({
-      text: this.getMarkerIcon(marker.markerId),
-      fontSize: 16,
-    })
-    view.add(icon)
-    return view
-  }
-  
-  private getMarkerIcon(markerId: string): string {
-    const icons: Record<string, string> = {
-      'priority-1': '🔴',
-      'priority-2': '🟡',
-      'priority-3': '🟢',
-      'flag': '🚩',
-      'star': '⭐',
-      'smile': '😊',
-    }
-    return icons[markerId] || '•'
+    const markersNodeView = new MarkersNodeView(this._node, this._node.markers)
+    markersNodeView.setPosition({ x: 8, y: 8 })
+    this.group.add(markersNodeView)
+    this.markerViews.push(markersNodeView)
   }
   
   private renderImage(): void {
@@ -333,7 +303,7 @@ export class TopicNodeView extends NodeView {
   
   destroy(): void {
     for (const view of this.markerViews) {
-      view.remove()
+      view.group.remove()
     }
     this.markerViews = []
     

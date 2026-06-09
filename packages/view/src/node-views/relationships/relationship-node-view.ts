@@ -1,7 +1,7 @@
 import { Path, Text, Group } from 'leafer-ui'
 import { NodeView, Size, Bounds, Position } from '../../core/node-view'
 import type { MindMapNode, RelationshipData } from '@y-mindmap/state'
-import type { StyleData, MarkerData, ImageData, ConnectionLayout, RelationshipData } from '@y-mindmap/core'
+import type { StyleData } from '@y-mindmap/core'
 import { DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
 
 export class RelationshipNodeView extends NodeView {
