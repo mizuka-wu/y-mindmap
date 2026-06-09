@@ -207,6 +207,10 @@ export class StyleManager {
       'line-opacity': DEFAULT_CONNECTION_STYLE.lineOpacity ?? 1,
       'start-arrow': undefined,
       'end-arrow': undefined,
+
+      // Layout
+      'major-spacing': undefined,
+      'minor-spacing': undefined,
     }
     return defaults[key]
   }

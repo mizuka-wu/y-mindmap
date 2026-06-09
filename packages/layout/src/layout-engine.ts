@@ -236,7 +236,7 @@ export class MapLayoutEngine implements LayoutEngine {
     }
     
     if (needsReposition && childLayouts.length > 0) {
-      this.positionChildren(rootLayout, childLayouts, side, options)
+      this.positionChildren(rootLayout, childLayouts, side, options, rootNode.id)
     }
     
     for (const child of children) {
@@ -325,7 +325,7 @@ export class MapLayoutEngine implements LayoutEngine {
     }
     
     if (childLayouts.length > 0) {
-      this.positionChildren(parentLayout, childLayouts, side, options)
+      this.positionChildren(parentLayout, childLayouts, side, options, parentNode.id)
     }
     
     for (const child of children) {
@@ -356,12 +356,24 @@ export class MapLayoutEngine implements LayoutEngine {
     parentLayout: NodeLayout,
     childLayouts: NodeLayout[],
     side: 'left' | 'right',
-    options: LayoutOptions
+    options: LayoutOptions,
+    parentNodeId?: string
   ): void {
     if (childLayouts.length === 0) return
     
+    // Resolve per-node spacing override
+    let hSpacing = options.horizontalSpacing
+    let vSpacing = options.verticalSpacing
+    if (parentNodeId && options.nodeSpacingResolver) {
+      const override = options.nodeSpacingResolver(parentNodeId)
+      if (override) {
+        hSpacing = override[0]
+        vSpacing = override[1]
+      }
+    }
+    
     const totalHeight = childLayouts.reduce((sum, layout) => sum + layout.height, 0) +
-      (childLayouts.length - 1) * options.verticalSpacing
+      (childLayouts.length - 1) * vSpacing
     
     let currentY = parentLayout.y + parentLayout.height / 2 - totalHeight / 2
     
@@ -369,12 +381,12 @@ export class MapLayoutEngine implements LayoutEngine {
       childLayout.y = currentY
       
       if (side === 'right') {
-        childLayout.x = parentLayout.x + parentLayout.width + options.horizontalSpacing
+        childLayout.x = parentLayout.x + parentLayout.width + hSpacing
       } else {
-        childLayout.x = parentLayout.x - childLayout.width - options.horizontalSpacing
+        childLayout.x = parentLayout.x - childLayout.width - hSpacing
       }
       
-      currentY += childLayout.height + options.verticalSpacing
+      currentY += childLayout.height + vSpacing
     }
   }
   

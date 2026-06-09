@@ -6,6 +6,8 @@ export interface LayoutOptions {
   verticalSpacing: number
   padding: number
   alignment: 'start' | 'center' | 'end'
+  /** Optional per-node spacing override. Returns [horizontal, vertical] or null for defaults. */
+  nodeSpacingResolver?: (nodeId: string) => [number, number] | null
 }
 
 export const DEFAULT_LAYOUT_OPTIONS: LayoutOptions = {

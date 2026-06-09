@@ -32,6 +32,8 @@ export enum StyleKey {
   START_ARROW = 'start-arrow',
   END_ARROW = 'end-arrow',
   BORDER_LINE_PATTERN = 'border-line-pattern',
+  MAJOR_SPACING = 'major-spacing',
+  MINOR_SPACING = 'minor-spacing',
   SHADOW_COLOR = 'shadow-color',
   SHADOW_BLUR = 'shadow-blur',
   SHADOW_OFFSET_X = 'shadow-offset-x',

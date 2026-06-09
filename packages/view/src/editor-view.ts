@@ -360,7 +360,7 @@ export class EditorView {
           this._isAnimating = true
           this.applyLayoutToViews(root, layoutResult)
         } else {
-          const layoutResult = this.layoutEngine.calculate(root, undefined, dirtyNodeIds)
+          const layoutResult = this.layoutEngine.calculate(root, this._getLayoutOptions(), dirtyNodeIds)
           this.applyLayoutToViews(root, layoutResult)
         }
       }
@@ -459,7 +459,7 @@ export class EditorView {
     if (!this.state) return
     
     const root = this.state.doc.root
-    const layoutResult = this.layoutEngine.calculate(root)
+    const layoutResult = this.layoutEngine.calculate(root, this._getLayoutOptions())
     
     const existingConnectionIds = new Set<string>()
     for (const [connectionId, connectionLayout] of layoutResult.connections) {
@@ -637,6 +637,22 @@ export class EditorView {
 
   getBackgroundColor(): string | undefined {
     return themeManager.getBackgroundColor()
+  }
+
+  private _getLayoutOptions(): any {
+    return {
+      nodeSpacingResolver: (nodeId: string): [number, number] | null => {
+        const view = this.nodeViewFactory.getTopicView(nodeId)
+        if (!view) return null
+        const majorSpacing = styleManager.getStyleValue(view, StyleKey.MAJOR_SPACING)
+        const minorSpacing = styleManager.getStyleValue(view, StyleKey.MINOR_SPACING)
+        if (majorSpacing === undefined && minorSpacing === undefined) return null
+        return [
+          majorSpacing ?? 40,
+          minorSpacing ?? 20,
+        ]
+      },
+    }
   }
 
   private _refreshAllColorStyles(): void {
