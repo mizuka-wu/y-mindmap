@@ -1,5 +1,5 @@
 import { createExtension } from '@y-mindmap/extension'
-import { Minimap, type MinimapConfig } from '@y-mindmap/view'
+import { Minimap as MinimapComponent, type MinimapConfig } from '@y-mindmap/view'
 
 export interface MinimapOptions {
   width?: number
@@ -30,14 +30,14 @@ export const Minimap = createExtension<MinimapOptions>({
     container.style.cssText = 'position:absolute;bottom:12px;right:12px;z-index:10;'
     dom.appendChild(container)
 
-    const minimap = new Minimap(container, {
+    const minimap = new MinimapComponent(container, {
       getDocument: () => ctx.state?.doc.root ?? null,
-      getNodeBounds: (nodeId) => ctx.view!.getNodeBounds(nodeId),
+      getNodeBounds: (nodeId: string) => ctx.view!.getNodeBounds(nodeId),
       getSelectedNodeIds: () => ctx.state?.selection.all ?? [],
       getViewportBounds: () => ctx.view!.getViewportBounds(),
       getZoom: () => ctx.view!.getZoom(),
-      panTo: (x, y) => ctx.view!.panTo(x, y),
-      zoomTo: (level) => ctx.view!.zoomTo(level),
+      panTo: (x: number, y: number) => ctx.view!.panTo(x, y),
+      zoomTo: (level: number) => ctx.view!.zoomTo(level),
     }, options as MinimapConfig)
 
     return () => {

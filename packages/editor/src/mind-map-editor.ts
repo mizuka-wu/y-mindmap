@@ -441,21 +441,37 @@ export class MindMapEditor {
   private registerCollabUndoRedo(): void {
     this.commandRegistry.register("undo", {
       name: "undo",
-      execute: () => {
+      description: "Undo last operation",
+      execute: (_state, _input, dispatch) => {
+        let newState: EditorState
         if (this.collabManager) {
-          return this.collabManager.undo();
+          const result = this.collabManager.undo()
+          newState = typeof result === 'object' ? result : this.state.undo()
+        } else {
+          newState = this.state.undo()
         }
-        return this.state.undo();
+        const tr = new Transaction(newState.doc, newState.selection)
+        tr.setMeta('source', 'undo')
+        if (dispatch) dispatch(tr)
+        return true
       },
     });
 
     this.commandRegistry.register("redo", {
       name: "redo",
-      execute: () => {
+      description: "Redo last undone operation",
+      execute: (_state, _input, dispatch) => {
+        let newState: EditorState
         if (this.collabManager) {
-          return this.collabManager.redo();
+          const result = this.collabManager.redo()
+          newState = typeof result === 'object' ? result : this.state.redo()
+        } else {
+          newState = this.state.redo()
         }
-        return this.state.redo();
+        const tr = new Transaction(newState.doc, newState.selection)
+        tr.setMeta('source', 'redo')
+        if (dispatch) dispatch(tr)
+        return true
       },
     });
   }
