@@ -1,11 +1,12 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from "vite";
 
 export default defineConfig({
-  root: '.',
+  root: ".",
+  base: "/y-mindmap/demos/",
   build: {
-    outDir: 'dist',
+    outDir: "dist",
   },
   server: {
     port: 3001,
   },
-})
+});
