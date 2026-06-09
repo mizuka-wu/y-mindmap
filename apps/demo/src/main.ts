@@ -1,475 +1,158 @@
-import { createMindMap, MindMapDocument, MindMapNode, TopicType } from '@y-mindmap/vanilla'
+import { MindMapDocument } from '@y-mindmap/state'
+import { MindMapEditor } from '@y-mindmap/editor'
+import type { ExtensionDefinition } from '@y-mindmap/extension'
+import { StarterKit } from '@y-mindmap/vanilla'
+import { Collab } from '@y-mindmap/extensions'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 
-const container = document.getElementById('app')
-if (!container) {
-  throw new Error('Container not found')
-}
-
+// ── State ──
+let editor: MindMapEditor | null = null
 let ydoc: Y.Doc | null = null
 let wsProvider: WebsocketProvider | null = null
-let currentUser = { name: 'User ' + Math.floor(Math.random() * 1000), color: getRandomColor() }
 
-const editor = createMindMap(container, {
-  user: currentUser,
-})
-
-setupUI()
-
-function getRandomColor(): string {
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F']
-  return colors[Math.floor(Math.random() * colors.length)]!
+const user = {
+  id: crypto.randomUUID(),
+  name: 'User-' + Math.floor(Math.random() * 1000),
+  account: 'local',
+  color: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'][Math.floor(Math.random() * 6)]!,
 }
 
-function setupUI() {
-  const toolbar = document.createElement('div')
-  toolbar.className = 'toolbar'
-  toolbar.innerHTML = `
-    <button id="btn-open">打开 XMind</button>
-    <button id="btn-new">新建</button>
-    <button id="btn-add">添加节点</button>
-    <button id="btn-delete">删除节点</button>
-    <button id="btn-undo">撤销</button>
-    <button id="btn-redo">重做</button>
-    <button id="btn-zoom-in">放大</button>
-    <button id="btn-zoom-out">缩小</button>
-    <button id="btn-fit">适应</button>
-    <select id="layout-select">
-      <option value="org.xmind.ui.map">思维导图</option>
-      <option value="org.xmind.ui.logic.right">逻辑图</option>
-      <option value="org.xmind.ui.tree.right">树形图</option>
-      <option value="org.xmind.ui.org-chart.down">组织图</option>
-      <option value="org.xmind.ui.fishbone.leftHeaded">鱼骨图</option>
-      <option value="org.xmind.ui.timeline.horizontal">时间线</option>
-      <option value="org.xmind.ui.spreadsheet">表格</option>
-      <option value="org.xmind.ui.brace.right">括号</option>
-      <option value="org.xmind.ui.treetable">树表</option>
-    </select>
-    <select id="shape-select">
-      <option value="roundedRect">圆角矩形</option>
-      <option value="rect">矩形</option>
-      <option value="ellipse">椭圆</option>
-      <option value="diamond">菱形</option>
-      <option value="hexagon">六边形</option>
-      <option value="cloud">云朵</option>
-      <option value="callout">标注</option>
-    </select>
-    <input type="file" id="file-input" accept=".xmind" style="display:none">
-    <button id="btn-collab">协作</button>
-  `
-  document.body.insertBefore(toolbar, container)
+// ── Init ──
+const container = document.getElementById('app')!
+createEditor()
 
-  const collabPanel = document.createElement('div')
-  collabPanel.id = 'collab-panel'
-  collabPanel.className = 'collab-panel hidden'
-  collabPanel.innerHTML = `
-    <div class="collab-header">
-      <h3>协作</h3>
-      <button id="btn-collab-close">×</button>
-    </div>
-    <div class="collab-content">
-      <div class="user-info">
-        <label>用户名:</label>
-        <input type="text" id="user-name" value="${currentUser.name}">
-        <div class="user-color" style="background-color: ${currentUser.color}"></div>
-      </div>
-      <div class="room-info">
-        <label>房间号:</label>
-        <input type="text" id="room-id" value="default-room">
-      </div>
-      <div class="server-info">
-        <label>服务器:</label>
-        <input type="text" id="server-url" value="ws://localhost:1234">
-      </div>
-      <button id="btn-collab-connect">连接</button>
-      <button id="btn-collab-disconnect" disabled>断开</button>
-      <div class="collab-status">
-        <span id="collab-status">未连接</span>
-      </div>
-      <div class="user-list">
-        <h4>在线用户</h4>
-        <div id="user-list-container"></div>
-      </div>
-    </div>
-  `
-  document.body.appendChild(collabPanel)
+function createEditor(collabYdoc?: Y.Doc) {
+  editor?.destroy()
 
-  const userListPanel = document.createElement('div')
-  userListPanel.id = 'user-list-panel'
-  userListPanel.className = 'user-list-panel hidden'
-  userListPanel.innerHTML = `
-    <div class="user-list-header">
-      <span>在线用户</span>
-      <span id="user-count">0</span>
-    </div>
-    <div id="user-list-items"></div>
-  `
-  document.body.appendChild(userListPanel)
-
-  setupEventListeners()
-  setupCollabUI()
-}
-
-function setupEventListeners() {
-  document.getElementById('btn-open')?.addEventListener('click', () => {
-    document.getElementById('file-input')?.click()
-  })
-
-  document.getElementById('file-input')?.addEventListener('change', async (e) => {
-    const input = e.target as HTMLInputElement
-    const file = input.files?.[0]
-    if (file) {
-      try {
-        await editor.loadXMindFile(file)
-        editor.fitToContent()
-      } catch (err) {
-        console.error('Failed to load XMind file:', err)
-        alert('加载失败: ' + (err as Error).message)
-      }
-    }
-  })
-
-  document.getElementById('btn-new')?.addEventListener('click', () => {
-    const doc = MindMapDocument.createEmpty()
-    editor.loadDocument(doc)
-  })
-
-  document.getElementById('btn-add')?.addEventListener('click', () => {
-    editor.executeCommand('addSubTopic')
-  })
-
-  document.getElementById('btn-delete')?.addEventListener('click', () => {
-    editor.executeCommand('deleteNode')
-  })
-
-  document.getElementById('btn-undo')?.addEventListener('click', () => {
-    editor.executeCommand('undo')
-  })
-
-  document.getElementById('btn-redo')?.addEventListener('click', () => {
-    editor.executeCommand('redo')
-  })
-
-  document.getElementById('btn-zoom-in')?.addEventListener('click', () => {
-    editor.zoomIn()
-  })
-
-  document.getElementById('btn-zoom-out')?.addEventListener('click', () => {
-    editor.zoomOut()
-  })
-
-  document.getElementById('btn-fit')?.addEventListener('click', () => {
-    editor.fitToContent()
-  })
-
-  document.getElementById('layout-select')?.addEventListener('change', (e) => {
-    const select = e.target as HTMLSelectElement
-    const selectedIds = editor.getSelection()
-    if (selectedIds.length > 0) {
-      editor.executeCommand('setStructureClass')
-    }
-  })
-
-  document.getElementById('shape-select')?.addEventListener('change', (e) => {
-    const select = e.target as HTMLSelectElement
-    const selectedIds = editor.getSelection()
-    if (selectedIds.length > 0) {
-      editor.executeCommand('updateStyle')
-    }
-  })
-
-  document.getElementById('btn-collab')?.addEventListener('click', () => {
-    const panel = document.getElementById('collab-panel')
-    panel?.classList.toggle('hidden')
-  })
-}
-
-function setupCollabUI() {
-  document.getElementById('btn-collab-close')?.addEventListener('click', () => {
-    document.getElementById('collab-panel')?.classList.add('hidden')
-  })
-
-  document.getElementById('btn-collab-connect')?.addEventListener('click', () => {
-    const userName = (document.getElementById('user-name') as HTMLInputElement)?.value || currentUser.name
-    const roomId = (document.getElementById('room-id') as HTMLInputElement)?.value || 'default-room'
-    const serverUrl = (document.getElementById('server-url') as HTMLInputElement)?.value || 'ws://localhost:1234'
-
-    currentUser.name = userName
-
-    ydoc = new Y.Doc()
-    wsProvider = new WebsocketProvider(serverUrl, roomId, ydoc)
-
-    wsProvider.on('status', (event: any) => {
-      updateCollabStatus(event.status === 'connected' ? '已连接' : '未连接')
-    })
-
-    wsProvider.on('sync', (synced: boolean) => {
-      if (synced) {
-        console.log('Synced with server')
-      }
-    })
-
-    console.log('Connecting to collaboration server:', { serverUrl, roomId, user: currentUser })
-
-    document.getElementById('btn-collab-connect')?.setAttribute('disabled', 'true')
-    document.getElementById('btn-collab-disconnect')?.removeAttribute('disabled')
-    document.getElementById('user-list-panel')?.classList.remove('hidden')
-
-    updateUserList([{ name: currentUser.name, color: currentUser.color, isLocal: true }])
-  })
-
-  document.getElementById('btn-collab-disconnect')?.addEventListener('click', () => {
-    wsProvider?.destroy()
-    ydoc?.destroy()
-    wsProvider = null
-    ydoc = null
-
-    updateCollabStatus('未连接')
-    document.getElementById('btn-collab-connect')?.removeAttribute('disabled')
-    document.getElementById('btn-collab-disconnect')?.setAttribute('disabled', 'true')
-    document.getElementById('user-list-panel')?.classList.add('hidden')
-    document.getElementById('user-list-items')!.innerHTML = ''
-    document.getElementById('user-count')!.textContent = '0'
-  })
-}
-
-function updateCollabStatus(status: string) {
-  const statusEl = document.getElementById('collab-status')
-  if (statusEl) {
-    statusEl.textContent = status
-  }
-}
-
-function updateUserList(users: { name: string; color: string; isLocal: boolean }[]) {
-  const container = document.getElementById('user-list-items')
-  const countEl = document.getElementById('user-count')
-
-  if (container) {
-    container.innerHTML = users.map(user => `
-      <div class="user-item ${user.isLocal ? 'local' : ''}">
-        <div class="user-avatar" style="background-color: ${user.color}"></div>
-        <span class="user-name">${user.name}</span>
-        ${user.isLocal ? '<span class="user-badge">你</span>' : ''}
-      </div>
-    `).join('')
+  const extensions: ExtensionDefinition<any>[] = [...StarterKit()]
+  if (collabYdoc) {
+    extensions.push(Collab.configure({ ydoc: collabYdoc }))
   }
 
-  if (countEl) {
-    countEl.textContent = users.length.toString()
-  }
+  editor = new MindMapEditor({
+    container,
+    extensions,
+    user,
+  })
 }
 
-const style = document.createElement('style')
-style.textContent = `
+// ── UI ──
+container.insertAdjacentHTML('beforebegin', `
+  <div class="toolbar">
+    <button onclick="editor?.executeCommand('addSubTopic')">+ 子节点</button>
+    <button onclick="editor?.executeCommand('addSiblingTopic')">+ 同级</button>
+    <button onclick="editor?.executeCommand('deleteNode')">删除</button>
+    <span class="sep"></span>
+    <button onclick="editor?.executeCommand('undo')">撤销</button>
+    <button onclick="editor?.executeCommand('redo')">重做</button>
+    <span class="sep"></span>
+    <button onclick="editor?.zoomIn()">放大</button>
+    <button onclick="editor?.zoomOut()">缩小</button>
+    <button onclick="editor?.fitToContent()">适应</button>
+    <span class="sep"></span>
+    <button id="btn-collab" class="collab-btn">协作</button>
+  </div>
+  <div id="collab-panel" class="collab-panel hidden">
+    <div class="row">
+      <label>房间</label>
+      <input id="room-id" value="demo-room" />
+    </div>
+    <div class="row">
+      <label>服务器</label>
+      <input id="server-url" value="ws://localhost:1234" />
+    </div>
+    <div class="row">
+      <button id="btn-connect">连接</button>
+      <button id="btn-disconnect" disabled>断开</button>
+      <span id="status" class="status">未连接</span>
+    </div>
+    <div id="peers"></div>
+  </div>
+`)
+
+// ── Collab ──
+document.getElementById('btn-collab')!.onclick = () => {
+  document.getElementById('collab-panel')!.classList.toggle('hidden')
+}
+
+document.getElementById('btn-connect')!.onclick = () => {
+  const roomId = (document.getElementById('room-id') as HTMLInputElement).value || 'demo-room'
+  const serverUrl = (document.getElementById('server-url') as HTMLInputElement).value || 'ws://localhost:1234'
+
+  ydoc = new Y.Doc()
+  wsProvider = new WebsocketProvider(serverUrl, roomId, ydoc)
+
+  wsProvider.on('status', (e: { status: string }) => {
+    document.getElementById('status')!.textContent = e.status === 'connected' ? '已连接' : '连接中...'
+  })
+
+  wsProvider.awareness.setLocalStateField('user', {
+    name: user.name,
+    color: user.color,
+  })
+
+  wsProvider.on('sync', (synced: boolean) => {
+    if (synced) {
+      // Recreate editor with collab
+      createEditor(ydoc!)
+      document.getElementById('btn-connect')!.setAttribute('disabled', 'true')
+      document.getElementById('btn-disconnect')!.removeAttribute('disabled')
+    }
+  })
+}
+
+document.getElementById('btn-disconnect')!.onclick = () => {
+  wsProvider?.destroy()
+  ydoc?.destroy()
+  wsProvider = null
+  ydoc = null
+
+  // Recreate editor without collab
+  createEditor()
+
+  document.getElementById('btn-connect')!.removeAttribute('disabled')
+  document.getElementById('btn-disconnect')!.setAttribute('disabled', 'true')
+  document.getElementById('status')!.textContent = '未连接'
+  document.getElementById('peers')!.innerHTML = ''
+}
+
+// ── Styles ──
+document.head.insertAdjacentHTML('beforeend', `<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
   .toolbar {
-    display: flex;
-    gap: 8px;
-    padding: 12px;
-    background: #f5f5f5;
-    border-bottom: 1px solid #ddd;
-    flex-wrap: wrap;
-    align-items: center;
+    display: flex; gap: 6px; padding: 10px 16px;
+    background: #f8f8f8; border-bottom: 1px solid #e0e0e0;
+    align-items: center; flex-wrap: wrap;
   }
-
-  .toolbar button, .toolbar select {
-    padding: 8px 12px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: white;
-    cursor: pointer;
-    font-size: 14px;
+  .toolbar button {
+    padding: 6px 14px; border: 1px solid #d0d0d0; border-radius: 6px;
+    background: #fff; cursor: pointer; font-size: 13px; transition: all 0.15s;
   }
-
-  .toolbar button:hover {
-    background: #e9e9e9;
-  }
-
+  .toolbar button:hover { background: #f0f0f0; border-color: #bbb; }
+  .sep { width: 1px; height: 20px; background: #ddd; margin: 0 4px; }
+  .collab-btn { background: #4A90D9 !important; color: #fff; border-color: #3a7bc8 !important; }
+  .collab-btn:hover { background: #3a7bc8 !important; }
   .collab-panel {
-    position: fixed;
-    top: 60px;
-    right: 20px;
-    width: 320px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 1000;
+    position: fixed; top: 56px; right: 16px; width: 280px;
+    background: #fff; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 16px; z-index: 100; font-size: 13px;
   }
-
-  .collab-panel.hidden {
-    display: none;
+  .collab-panel.hidden { display: none; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .row label { width: 40px; font-size: 12px; color: #888; }
+  .row input {
+    flex: 1; padding: 6px 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px;
   }
-
-  .collab-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #eee;
+  .row button {
+    padding: 6px 14px; border: none; border-radius: 6px;
+    cursor: pointer; font-size: 13px;
   }
-
-  .collab-header h3 {
-    margin: 0;
-    font-size: 16px;
-  }
-
-  .collab-header button {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #666;
-  }
-
-  .collab-content {
-    padding: 16px;
-  }
-
-  .collab-content label {
-    display: block;
-    margin-bottom: 4px;
-    font-size: 12px;
-    color: #666;
-  }
-
-  .collab-content input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    margin-bottom: 12px;
-    box-sizing: border-box;
-  }
-
-  .collab-content button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    background: #4A90D9;
-    color: white;
-    cursor: pointer;
-    margin-right: 8px;
-    margin-bottom: 12px;
-  }
-
-  .collab-content button:disabled {
-    background: #ccc;
-    cursor: not-allowed;
-  }
-
-  .collab-status {
-    margin-bottom: 12px;
-    font-size: 14px;
-  }
-
-  .user-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-
-  .user-info input {
-    flex: 1;
-    margin-bottom: 0;
-  }
-
-  .user-color {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 1px #ddd;
-  }
-
-  .user-list h4, .conflict-list h4 {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    color: #333;
-  }
-
-  .user-list-panel {
-    position: fixed;
-    top: 60px;
-    left: 20px;
-    width: 200px;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 1000;
-  }
-
-  .user-list-panel.hidden {
-    display: none;
-  }
-
-  .user-list-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #eee;
-    font-weight: bold;
-  }
-
-  .user-list-header #user-count {
-    background: #4A90D9;
-    color: white;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 12px;
-  }
-
-  #user-list-items {
-    padding: 8px;
-  }
-
-  .user-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px;
-    border-radius: 4px;
-  }
-
-  .user-item.local {
-    background: #f0f8ff;
-  }
-
-  .user-avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 1px #ddd;
-  }
-
-  .user-name {
-    flex: 1;
-    font-size: 14px;
-  }
-
-  .user-badge {
-    font-size: 10px;
-    background: #4A90D9;
-    color: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-
-  .conflict-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px;
-    background: #fff3cd;
-    border-radius: 4px;
-    margin-bottom: 8px;
-    font-size: 12px;
-  }
-
-  .conflict-icon {
-    font-size: 16px;
-  }
-`
-document.head.appendChild(style)
+  #btn-connect { background: #4A90D9; color: #fff; }
+  #btn-connect:disabled { background: #ccc; cursor: not-allowed; }
+  #btn-disconnect { background: #f5f5f5; color: #666; border: 1px solid #ddd; }
+  #btn-disconnect:disabled { background: #f5f5f5; color: #ccc; cursor: not-allowed; }
+  .status { font-size: 12px; color: #999; }
+  #app { width: 100vw; height: calc(100vh - 56px); }
+</style>`)

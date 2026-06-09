@@ -32,6 +32,18 @@ importers:
 
   apps/demo:
     dependencies:
+      '@y-mindmap/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
+      '@y-mindmap/extension':
+        specifier: workspace:*
+        version: link:../../packages/extension
+      '@y-mindmap/extensions':
+        specifier: workspace:*
+        version: link:../../extensions
+      '@y-mindmap/state':
+        specifier: workspace:*
+        version: link:../../packages/state
       '@y-mindmap/vanilla':
         specifier: workspace:*
         version: link:../../startkits/vanilla
