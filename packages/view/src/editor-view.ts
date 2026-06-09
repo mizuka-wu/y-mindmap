@@ -96,7 +96,30 @@ export class EditorView {
     const newState = this.state.apply(tr)
     this.state = newState
 
-    this._routeTransactionToBranchViews(tr)
+    const source = tr.getMeta('source')
+    if (source === 'undo' || source === 'redo') {
+      this._fullRebuild()
+    } else {
+      this._routeTransactionToBranchViews(tr)
+      this.scheduleUpdate()
+    }
+  }
+
+  private _fullRebuild(): void {
+    if (!this.state) return
+
+    if (this._rootBranch) {
+      this._rootBranch.destroy()
+      this._rootBranch = null
+    }
+    
+    this._rootView = null
+    this._branchMap.clear()
+    this.nodeViewFactory.clear()
+
+    this.topicLayer.clear()
+    this.connectionLayer.clear()
+
     this.scheduleUpdate()
   }
 
@@ -114,6 +137,11 @@ export class EditorView {
           break
         }
         case 'removeNode': {
+          const branch = this._branchMap.get(step.id)
+          if (branch) {
+            branch.destroy()
+          }
+          
           const parentId = this._findParentId(step.id)
           if (parentId) {
             const parentBranch = this._branchMap.get(parentId)
@@ -124,7 +152,9 @@ export class EditorView {
               })
             }
           }
+          
           this._branchMap.delete(step.id)
+          this.nodeViewFactory.removeViewsByNodeId(step.id)
           break
         }
         case 'updateNode': {
