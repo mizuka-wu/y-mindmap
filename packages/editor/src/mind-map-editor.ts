@@ -110,6 +110,7 @@ export class MindMapEditor {
   private richTextInlineEditor: RichTextInlineEditor;
   private inertialScroll: InertialScroll | null = null;
   private gestureRecognizer: GestureRecognizer | null = null;
+  private documentKeyDownHandler: ((e: KeyboardEvent) => void) | null = null;
   private xmindImporter: XMindImporter;
   private xmindExporter: XMindExporter;
   private markdownImporter: MarkdownImporter;
@@ -262,7 +263,8 @@ export class MindMapEditor {
       registerCommand: (name, command) => {
         this.commandRegistry.register(name, {
           name,
-          execute: (state, dispatch, args) => command(state, dispatch, args),
+          description: `Extension command: ${name}`,
+          execute: (state, input, dispatch) => command(state, dispatch, input),
         });
       },
       unregisterCommand: (name) => this.commandRegistry.unregister(name),
@@ -553,6 +555,7 @@ export class MindMapEditor {
     this.interactionManager.updateState(this.state);
     this.uiManager.update();
     this.pluginManager.updateState(this.state);
+    this.extensionManager.updateState(this.state);
     this.emitPluginEvent('document:load', doc);
   }
 
@@ -980,7 +983,7 @@ export class MindMapEditor {
       this.gestureRecognizer?.handlePointerCancel(e.pointerId);
     });
 
-    document.addEventListener("keydown", (e) => {
+    this.documentKeyDownHandler = (e: KeyboardEvent) => {
       if (
         this.container.contains(document.activeElement) ||
         document.activeElement === this.container
@@ -993,26 +996,14 @@ export class MindMapEditor {
           meta: e.metaKey,
         };
 
-        let keyStr = "";
-        if (modifiers.ctrl || modifiers.meta) keyStr += "Ctrl+";
-        if (modifiers.shift) keyStr += "Shift+";
-        if (modifiers.alt) keyStr += "Alt+";
-        keyStr +=
-          key === " " ? "Space" : key.length === 1 ? key.toLowerCase() : key;
-
-        const commandName = this.commandRegistry.getCommandForKey(keyStr);
-        if (commandName) {
-          e.preventDefault();
-          this.executeCommand(commandName);
-        } else {
-          this.interactionManager.handleEvent({
-            type: "keydown",
-            key,
-            modifiers,
-          });
-        }
+        this.interactionManager.handleEvent({
+          type: "keydown",
+          key,
+          modifiers,
+        });
       }
-    });
+    };
+    document.addEventListener("keydown", this.documentKeyDownHandler);
   }
 
   use(plugin: Plugin): void {
@@ -1083,5 +1074,9 @@ export class MindMapEditor {
     this.uiManager.destroy();
     this.inertialScroll?.stop();
     this.gestureRecognizer?.reset();
+    if (this.documentKeyDownHandler) {
+      document.removeEventListener("keydown", this.documentKeyDownHandler);
+      this.documentKeyDownHandler = null;
+    }
   }
 }

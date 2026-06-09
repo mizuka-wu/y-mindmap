@@ -14,13 +14,17 @@ export const Collab = createExtension<CollabOptions>({
   type: 'collaboration',
 
   defaultOptions: {
-    ydoc: null as any,
+    ydoc: undefined as unknown as Y.Doc,
     field: 'mindmap',
     enabled: true,
   },
 
   setup(ctx, options) {
     const { ydoc, field } = options
+    if (!ydoc) {
+      console.warn('Collab extension requires ydoc option')
+      return
+    }
     const ynodes = ydoc.getMap<Y.Map<any>>('nodes')
     const yrootId = ydoc.getText('rootId')
 

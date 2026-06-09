@@ -123,7 +123,11 @@ export class ExtensionManager {
 
     for (const ext of this.extensions.values()) {
       if (ext.destroy) {
-        ext.destroy()
+        try {
+          ext.destroy()
+        } catch (error) {
+          console.error(`Error destroying extension ${ext.name}:`, error)
+        }
       }
     }
 
