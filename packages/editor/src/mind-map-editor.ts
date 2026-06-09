@@ -185,6 +185,7 @@ export class MindMapEditor {
       onTitleUpdate: (nodeId, title) => {
         this.executeCommand("updateTitle", { nodeId, title });
       },
+      getPluginMenuItems: () => this.pluginManager?.getMenuItems() ?? [],
     });
 
     this.inlineEditor = new InlineEditor({
@@ -239,6 +240,7 @@ export class MindMapEditor {
 
     this.pluginManager = new PluginManager();
     this.pluginManager.setEditorContext(this.state, (tr) => this.dispatch(tr));
+    this.uiManager.setPluginManager(this.pluginManager);
 
     if (options.plugins) {
       for (const plugin of options.plugins) {

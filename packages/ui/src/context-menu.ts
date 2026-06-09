@@ -22,9 +22,14 @@ export interface UIContext {
 export class ContextMenu {
   private container: HTMLElement | null = null
   private context: UIContext
+  private pluginMenuItems: MenuItem[] = []
 
   constructor(context: UIContext) {
     this.context = context
+  }
+
+  setPluginMenuItems(items: MenuItem[]): void {
+    this.pluginMenuItems = items
   }
 
   show(position: Point, nodeId?: string): void {
@@ -97,14 +102,22 @@ export class ContextMenu {
   }
 
   private getItems(nodeId?: string): MenuItem[] {
+    let items: MenuItem[]
+
     if (!nodeId) {
-      return this.getEmptyMenuItems()
+      items = this.getEmptyMenuItems()
+    } else {
+      const node = this.context.state.doc.getNodeById(nodeId)
+      if (!node) return []
+      items = this.getNodeMenuItems(node)
     }
 
-    const node = this.context.state.doc.getNodeById(nodeId)
-    if (!node) return []
+    if (this.pluginMenuItems.length > 0) {
+      items.push({ id: 'plugin-divider', divider: true, label: '' })
+      items.push(...this.pluginMenuItems)
+    }
 
-    return this.getNodeMenuItems(node)
+    return items
   }
 
   private getNodeMenuItems(node: MindMapNode): MenuItem[] {

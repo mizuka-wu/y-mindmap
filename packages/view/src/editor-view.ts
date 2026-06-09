@@ -28,6 +28,7 @@ export interface EditorViewConfig {
   miniMapConfig?: MinimapConfig
   showZoomControls?: boolean
   zoomControlsConfig?: ZoomControlsConfig
+  getPluginMenuItems?: () => Array<{id: string, label: string, icon?: string, shortcut?: string, action: () => void}>
 }
 
 export class EditorView {
@@ -87,6 +88,7 @@ export class EditorView {
   private _minimapContainer: HTMLElement | null = null
   private _zoomControls: ZoomControls | null = null
   private _zoomControlsContainer: HTMLElement | null = null
+  private _getPluginMenuItems: (() => Array<{id: string, label: string, icon?: string, shortcut?: string, action: () => void}>) | null = null
   
   constructor(config: EditorViewConfig) {
     this.container = config.container
@@ -95,6 +97,7 @@ export class EditorView {
     this.animationDuration = config.animationDuration ?? 300
     this.nodeViewFactory = new NodeViewFactory()
     this._onTitleUpdate = config.onTitleUpdate ?? null
+    this._getPluginMenuItems = config.getPluginMenuItems ?? null
     
     if (this.enableAnimations) {
       this.animatedLayoutEngine = new AnimatedLayoutEngine(this.layoutEngine, {
@@ -921,7 +924,29 @@ export class EditorView {
       { label: '编辑标题', action: () => this.startEditing(nodeId) },
     ]
 
+    if (this._getPluginMenuItems) {
+      const pluginItems = this._getPluginMenuItems()
+      if (pluginItems.length > 0) {
+        items.push({ label: '', action: () => {}, divider: true } as any)
+        for (const pluginItem of pluginItems) {
+          items.push({
+            label: pluginItem.label,
+            action: pluginItem.action,
+          })
+        }
+      }
+    }
+
     for (const item of items) {
+      if ((item as any).divider) {
+        const divider = document.createElement('div')
+        divider.style.height = '1px'
+        divider.style.background = '#e0e0e0'
+        divider.style.margin = '4px 0'
+        menu.appendChild(divider)
+        continue
+      }
+
       const menuItem = document.createElement('div')
       menuItem.textContent = item.label
       menuItem.style.padding = '8px 16px'

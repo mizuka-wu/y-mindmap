@@ -31,10 +31,16 @@ export class Toolbar {
   private context: UIContext
   private buttons: Map<string, HTMLButtonElement> = new Map()
   private selects: Map<string, HTMLSelectElement> = new Map()
+  private pluginToolbarButtons: Array<{id: string, label: string, icon: string, tooltip?: string, action: () => void}> = []
 
   constructor(container: HTMLElement, context: UIContext) {
     this.container = container
     this.context = context
+    this.render()
+  }
+
+  setPluginToolbarButtons(buttons: Array<{id: string, label: string, icon: string, tooltip?: string, action: () => void}>): void {
+    this.pluginToolbarButtons = buttons
     this.render()
   }
 
@@ -73,6 +79,27 @@ export class Toolbar {
       }
 
       this.container.appendChild(groupEl)
+    }
+
+    if (this.pluginToolbarButtons.length > 0) {
+      const pluginGroup = document.createElement('div')
+      pluginGroup.className = 'toolbar-group'
+
+      const divider = document.createElement('div')
+      divider.className = 'toolbar-divider'
+      pluginGroup.appendChild(divider)
+
+      for (const btn of this.pluginToolbarButtons) {
+        const button = document.createElement('button')
+        button.className = 'toolbar-button'
+        button.dataset.action = btn.id
+        button.title = btn.tooltip || btn.label
+        button.innerHTML = `${btn.icon} ${btn.label}`
+        button.addEventListener('click', () => btn.action())
+        pluginGroup.appendChild(button)
+      }
+
+      this.container.appendChild(pluginGroup)
     }
   }
 

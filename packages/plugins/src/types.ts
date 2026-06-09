@@ -22,6 +22,7 @@ export type PluginEvent =
   | 'collab:join'
   | 'collab:leave'
   | 'collab:conflict'
+  | 'collab:state-change'
   | 'plugin:register'
   | 'plugin:activate'
   | 'plugin:deactivate'
