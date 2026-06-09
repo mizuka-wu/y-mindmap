@@ -1,339 +1,359 @@
 import { App, Leafer, Group } from 'leafer-ui'
-import { EditorState, MindMapNode, Selection } from '@y-mindmap/state'
-import { LayoutEngine, LayoutResult, MapLayout, NodeLayout, ConnectionLayout, LayoutTransition, AnimatedLayoutEngine } from '@y-mindmap/layout'
-import { Point, Bounds } from '@y-mindmap/core'
-import { TopicView } from './topic-view'
-import { ConnectionView } from './connection-view'
-import { ViewportController } from './viewport/viewport-controller'
-import { DecorationManager, Decoration, DecorationSet } from './decorations'
-import { CollabCursorView, CollabSelectionView, RemoteCursor, RemoteSelection } from './collab'
+import { EditorState, MindMapDocument, MindMapNode, Transaction, Selection } from '@y-mindmap/state'
+import type { ConnectionLayout } from '@y-mindmap/layout'
+import { MapLayoutEngine, type LayoutEngine, type LayoutResult } from '@y-mindmap/layout'
+import { NodeViewFactory } from './node-views/node-view-factory'
+import { TopicNodeView } from './node-views/topic-node-view'
+import { BranchNodeView } from './node-views/containers/branch-node-view'
+import { ConnectionNodeView } from './node-views/connection-node-view'
+import { DirtyFlag } from './core/node-view'
 
 export interface EditorViewConfig {
   container: HTMLElement
-  state: EditorState
+  state?: EditorState
   layoutEngine?: LayoutEngine
-  enableAnimation?: boolean
 }
 
 export class EditorView {
   private app: App
-  private state: EditorState
-  private layoutEngine: AnimatedLayoutEngine
-  private viewportController: ViewportController
-  private decorationManager: DecorationManager
-
-  private topicViews: Map<string, TopicView> = new Map()
-  private connectionViews: Map<string, ConnectionView> = new Map()
-
+  private nodeViewFactory: NodeViewFactory
+  private layoutEngine: LayoutEngine
+  
   private topicLayer: Leafer
   private connectionLayer: Leafer
-  private decorationLayer: Leafer
-  private collabLayer: Leafer | null = null
-
+  private overlayLayer: Leafer
+  
   private container: HTMLElement
-  private enableAnimation: boolean
-
-  private collabCursorView: CollabCursorView | null = null
-  private collabSelectionView: CollabSelectionView | null = null
-
+  private state: EditorState | null = null
+  private _rootView: TopicNodeView | null = null
+  private _rootBranch: BranchNodeView | null = null
+  private _branchMap: Map<string, BranchNodeView> = new Map()
+  
+  private _updateScheduled: boolean = false
+  private _isUpdating: boolean = false
+  private _pendingDirtyNodeIds: Set<string> = new Set()
+  
   constructor(config: EditorViewConfig) {
     this.container = config.container
-    this.state = config.state
-    this.enableAnimation = config.enableAnimation ?? true
-
-    const baseLayout = config.layoutEngine || new MapLayout()
-    this.layoutEngine = new AnimatedLayoutEngine(baseLayout, {
-      duration: 300,
-      easing: 'ease-out',
-      stagger: 20,
-    })
-
+    this.layoutEngine = config.layoutEngine || new MapLayoutEngine()
+    this.nodeViewFactory = new NodeViewFactory()
+    
     this.app = new App({
       view: config.container,
       type: 'viewport',
     })
-
+    
     this.connectionLayer = this.app.addLeafer({ type: 'draw' })
     this.topicLayer = this.app.addLeafer({ type: 'draw' })
-    this.decorationLayer = this.app.addLeafer({ type: 'draw' })
-
-    this.viewportController = new ViewportController(this.app)
-    this.decorationManager = new DecorationManager()
-
-    this.initCollabLayer()
-
-    this.render()
+    this.overlayLayer = this.app.addLeafer({ type: 'draw' })
+    
+    if (config.state) {
+      this.setState(config.state)
+    }
   }
-
-  private initCollabLayer(): void {
-    this.collabLayer = this.app.addLeafer({ type: 'draw' })
-    const collabGroup = new Group()
-    this.collabLayer.add(collabGroup)
-
-    this.collabCursorView = new CollabCursorView(collabGroup)
-    this.collabSelectionView = new CollabSelectionView(collabGroup, (nodeId) => {
-      const view = this.topicViews.get(nodeId)
-      if (!view) return null
-      return {
-        x: view.group.x || 0,
-        y: view.group.y || 0,
-        width: view.group.width || 0,
-        height: view.group.height || 0,
-      }
-    })
+  
+  setState(state: EditorState): void {
+    this.state = state
+    this.scheduleUpdate()
   }
-
-  getState(): EditorState {
+  
+  getState(): EditorState | null {
     return this.state
   }
+  
+  dispatch(tr: Transaction): void {
+    if (!this.state) return
 
-  updateState(newState: EditorState): void {
+    const oldState = this.state
+    const newState = this.state.apply(tr)
     this.state = newState
-    this.render()
+
+    this._routeTransactionToBranchViews(tr)
+    this.scheduleUpdate()
   }
 
-  getZoom(): number {
-    return this.viewportController.getZoom()
+  private _routeTransactionToBranchViews(tr: Transaction): void {
+    for (const step of tr.steps) {
+      switch (step.type) {
+        case 'addNode': {
+          const parentBranch = this._branchMap.get(step.parentId)
+          if (parentBranch) {
+            parentBranch.onNodeChanged('addTopic', {
+              topic: step.node,
+              type: step.nodeType || 'attached',
+            })
+          }
+          break
+        }
+        case 'removeNode': {
+          const parentId = this._findParentId(step.id)
+          if (parentId) {
+            const parentBranch = this._branchMap.get(parentId)
+            if (parentBranch) {
+              parentBranch.onNodeChanged('removeTopic', {
+                topicId: step.id,
+                type: 'attached',
+              })
+            }
+          }
+          this._branchMap.delete(step.id)
+          break
+        }
+        case 'toggleFold': {
+          const branch = this._branchMap.get(step.id)
+          if (branch) {
+            const node = this.state?.doc.getNodeById(step.id)
+            branch.onNodeChanged('change:branch', {
+              collapsed: node?.isFolded ?? false,
+            })
+          }
+          break
+        }
+        case 'setStructureClass': {
+          const branch = this._branchMap.get(step.id)
+          if (branch) {
+            branch.onNodeChanged('changeStructureClass', {
+              structureClass: step.structureClass,
+            })
+          }
+          break
+        }
+        case 'updateStyle': {
+          const branch = this._branchMap.get(step.id)
+          if (branch) {
+            branch.refreshColorStyles()
+          }
+          break
+        }
+      }
+    }
   }
 
-  zoomTo(level: number): void {
-    this.viewportController.zoomTo(level)
+  private _findParentId(childId: string): string | null {
+    if (!this.state) return null
+    const parent = this.state.doc.findParent(childId)
+    return parent ? parent.id : null
+  }
+  
+  private scheduleUpdate(): void {
+    if (this._updateScheduled) return
+    
+    this._updateScheduled = true
+    Promise.resolve().then(() => {
+      this._updateScheduled = false
+      this.performUpdate()
+    })
+  }
+  
+  private performUpdate(): void {
+    if (!this.state || this._isUpdating) return
+    
+    this._isUpdating = true
+    
+    try {
+      const root = this.state.doc.root
+      
+      this.ensureRootView(root)
+      
+      const dirtyNodeIds = this._rootView!.collectDirtyNodeIds()
+      
+      if (dirtyNodeIds.size > 0) {
+        const layoutResult = this.layoutEngine.calculate(root, undefined, dirtyNodeIds)
+        this.applyLayoutToViews(root, layoutResult)
+      }
+      
+      this.validateLayoutViews(root)
+      this.validatePaintViews(root)
+      this.updateConnectionViews()
+      this.updateSelection()
+      
+      this._pendingDirtyNodeIds.clear()
+    } finally {
+      this._isUpdating = false
+    }
+  }
+  
+  private ensureRootView(root: MindMapNode): void {
+    if (!this._rootView) {
+      this._rootView = this.nodeViewFactory.createTopicView(root)
+      this.topicLayer.add(this._rootView.group)
+    }
+
+    if (!this._rootBranch) {
+      this._rootBranch = new BranchNodeView(root)
+      this._rootBranch.setTopicView(this._rootView)
+      this._branchMap.set(root.id, this._rootBranch)
+    }
+
+    this.syncNodeViews(root, this._rootView, this._rootBranch)
   }
 
-  zoomIn(): void {
-    this.viewportController.zoomIn()
-  }
+  private syncNodeViews(node: MindMapNode, parentView: TopicNodeView, parentBranch: BranchNodeView): void {
+    for (const children of Object.values(node.children)) {
+      for (const child of children) {
+        let childView = this.nodeViewFactory.getTopicView(child.id)
+        if (!childView) {
+          childView = this.nodeViewFactory.createTopicView(child)
+          parentView.addChild(childView)
+        } else {
+          childView.updateNode(child)
+        }
 
-  zoomOut(): void {
-    this.viewportController.zoomOut()
-  }
+        if (!this._branchMap.has(child.id)) {
+          const childBranch = new BranchNodeView(child)
+          childBranch.setTopicView(childView)
+          parentBranch.addChildBranch(childBranch, 'attached')
+          this._branchMap.set(child.id, childBranch)
+        }
 
-  panTo(position: Point): void {
-    this.viewportController.panToPoint(position, this.getContainerSize())
+        this.syncNodeViews(child, childView, this._branchMap.get(child.id)!)
+      }
+    }
   }
-
-  panBy(dx: number, dy: number): void {
-    this.viewportController.panBy(dx, dy)
+  
+  private applyLayoutToViews(node: MindMapNode, layoutResult: LayoutResult): void {
+    const nodeLayout = layoutResult.nodes.get(node.id)
+    if (!nodeLayout) return
+    
+    const view = this.nodeViewFactory.getTopicView(node.id)
+    if (view) {
+      view.setPosition({ x: nodeLayout.x, y: nodeLayout.y })
+      view.setSize({ width: nodeLayout.width, height: nodeLayout.height })
+    }
+    
+    for (const children of Object.values(node.children)) {
+      for (const child of children) {
+        this.applyLayoutToViews(child, layoutResult)
+      }
+    }
   }
-
-  fitToContent(): void {
-    const bounds = this.calculateContentBounds()
-    if (!bounds) return
-    this.viewportController.fitToContent(bounds, this.getContainerSize())
+  
+  private validateLayoutViews(node: MindMapNode): void {
+    const view = this.nodeViewFactory.getTopicView(node.id)
+    if (view) {
+      view.validateLayout()
+    }
+    
+    for (const children of Object.values(node.children)) {
+      for (const child of children) {
+        this.validateLayoutViews(child)
+      }
+    }
   }
-
+  
+  private validatePaintViews(node: MindMapNode): void {
+    const view = this.nodeViewFactory.getTopicView(node.id)
+    if (view) {
+      view.validatePaint()
+    }
+    
+    for (const children of Object.values(node.children)) {
+      for (const child of children) {
+        this.validatePaintViews(child)
+      }
+    }
+  }
+  
+  private updateConnectionViews(): void {
+    if (!this.state) return
+    
+    const root = this.state.doc.root
+    const layoutResult = this.layoutEngine.calculate(root)
+    
+    for (const [connectionId, connectionLayout] of layoutResult.connections) {
+      const view = this.nodeViewFactory.createConnectionView(connectionId, connectionLayout)
+      this.connectionLayer.add(view.group)
+      view.validate()
+    }
+  }
+  
+  private updateSelection(): void {
+    if (!this.state) return
+    
+    const selectedIds = this.state.selection.selectedIds
+    
+    for (const nodeId of selectedIds) {
+      const view = this.nodeViewFactory.getTopicView(nodeId)
+      if (view) {
+        view.setSelected(true)
+      }
+    }
+  }
+  
   selectNode(nodeId: string): void {
-    const tr = this.state.tr
+    if (!this.state) return
+    
+    const tr = new Transaction(this.state.doc, this.state.selection)
     tr.setSelection(Selection.single(nodeId))
-    this.updateState(this.state.apply(tr))
+    this.dispatch(tr)
   }
-
+  
+  selectNodes(nodeIds: string[]): void {
+    if (!this.state) return
+    
+    const tr = new Transaction(this.state.doc, this.state.selection)
+    tr.setSelection(Selection.multiple(nodeIds))
+    this.dispatch(tr)
+  }
+  
+  clearSelection(): void {
+    if (!this.state) return
+    
+    const tr = new Transaction(this.state.doc, this.state.selection)
+    tr.setSelection(Selection.empty())
+    this.dispatch(tr)
+  }
+  
   getSelection(): string[] {
+    if (!this.state) return []
     return Array.from(this.state.selection.selectedIds)
   }
-
-  getViewportController(): ViewportController {
-    return this.viewportController
+  
+  getZoom(): number {
+    return this.app.zoom
   }
-
-  getDecorationManager(): DecorationManager {
-    return this.decorationManager
+  
+  zoomTo(level: number): void {
+    this.app.zoom = level
   }
-
-  addDecoration(decoration: Decoration): void {
-    this.decorationManager.addDecoration(decoration)
+  
+  zoomIn(): void {
+    this.app.zoom = Math.min(this.app.zoom * 1.2, 10)
   }
-
-  removeDecoration(predicate: (dec: Decoration) => boolean): void {
-    this.decorationManager.removeDecoration(predicate)
+  
+  zoomOut(): void {
+    this.app.zoom = Math.max(this.app.zoom * 0.8, 0.1)
   }
-
-  setDecorations(decorations: DecorationSet): void {
-    this.decorationManager.setDecorations(decorations)
+  
+  panTo(x: number, y: number): void {
+    this.app.x = x
+    this.app.y = y
   }
-
-  getNodeBounds(nodeId: string): Bounds | null {
-    const view = this.topicViews.get(nodeId)
-    if (!view) return null
-    
-    const group = view.group
-    return {
-      x: group.x ?? 0,
-      y: group.y ?? 0,
-      width: group.width ?? 100,
-      height: group.height ?? 40,
-    }
+  
+  panBy(dx: number, dy: number): void {
+    this.app.x += dx
+    this.app.y += dy
   }
-
-  getViewportBounds(): Bounds {
-    const size = this.getContainerSize()
-    const pan = this.viewportController.getPan()
-    const zoom = this.viewportController.getZoom()
-    
-    return {
-      x: -pan.x / zoom,
-      y: -pan.y / zoom,
-      width: size.width / zoom,
-      height: size.height / zoom,
-    }
+  
+  fitToContent(): void {
+    this.app.zoomToFit({ padding: 40 })
   }
-
-  getNodeAtPoint(point: Point): string | null {
-    for (const [nodeId, view] of this.topicViews) {
-      const bounds = this.getNodeBounds(nodeId)
-      if (bounds && this.isPointInBounds(point, bounds)) {
-        return nodeId
-      }
-    }
-    return null
+  
+  getTopicView(nodeId: string): TopicNodeView | undefined {
+    return this.nodeViewFactory.getTopicView(nodeId)
   }
-
-  private isPointInBounds(point: Point, bounds: Bounds): boolean {
-    return (
-      point.x >= bounds.x &&
-      point.x <= bounds.x + bounds.width &&
-      point.y >= bounds.y &&
-      point.y <= bounds.y + bounds.height
-    )
+  
+  getConnectionView(connectionId: string): ConnectionNodeView | undefined {
+    return this.nodeViewFactory.getConnectionView(connectionId)
   }
-
-  private getContainerSize(): { width: number; height: number } {
-    return {
-      width: this.container.clientWidth || 800,
-      height: this.container.clientHeight || 600,
-    }
-  }
-
-  private render(): void {
-    if (this.enableAnimation) {
-      const layoutResult = this.layoutEngine.calculateAnimated(
-        this.state.doc.root,
-        (nodeId, position) => {
-          const view = this.topicViews.get(nodeId)
-          if (view) {
-            view.group.x = position.x
-            view.group.y = position.y
-          }
-        },
-        () => {
-          this.updateDecorations()
-        }
-      )
-
-      this.updateTopicViews(layoutResult)
-      this.updateConnectionViews(layoutResult)
-      this.updateSelection()
-    } else {
-      const layoutResult = this.layoutEngine.calculate(this.state.doc.root)
-      this.updateTopicViews(layoutResult)
-      this.updateConnectionViews(layoutResult)
-      this.updateSelection()
-      this.updateDecorations()
-    }
-  }
-
-  private updateTopicViews(layoutResult: LayoutResult): void {
-    const existingIds = new Set(this.topicViews.keys())
-
-    for (const [nodeId, nodeLayout] of layoutResult.nodes) {
-      existingIds.delete(nodeId)
-
-      const node = this.state.doc.getNodeById(nodeId)
-      if (!node) continue
-
-      let view = this.topicViews.get(nodeId)
-      if (view) {
-        view.updateNode(node)
-        view.updateLayout(nodeLayout)
-      } else {
-        view = new TopicView(node, nodeLayout)
-        this.topicViews.set(nodeId, view)
-        this.topicLayer.add(view.group)
-        this.decorationManager.setNodeView(nodeId, view.group)
-      }
-    }
-
-    for (const id of existingIds) {
-      const view = this.topicViews.get(id)
-      if (view) {
-        view.destroy()
-        this.topicViews.delete(id)
-        this.decorationManager.removeNodeView(id)
-      }
-    }
-  }
-
-  private updateConnectionViews(layoutResult: LayoutResult): void {
-    const existingIds = new Set(this.connectionViews.keys())
-
-    for (const [connectionId, connectionLayout] of layoutResult.connections) {
-      existingIds.delete(connectionId)
-
-      let view = this.connectionViews.get(connectionId)
-      if (view) {
-        view.updateLayout(connectionLayout)
-      } else {
-        view = new ConnectionView(connectionLayout)
-        this.connectionViews.set(connectionId, view)
-        this.connectionLayer.add(view.path)
-      }
-    }
-
-    for (const id of existingIds) {
-      const view = this.connectionViews.get(id)
-      if (view) {
-        view.destroy()
-        this.connectionViews.delete(id)
-      }
-    }
-  }
-
-  private updateSelection(): void {
-    const selectedIds = this.state.selection.selectedIds
-
-    for (const [nodeId, view] of this.topicViews) {
-      view.setSelected(selectedIds.has(nodeId))
-    }
-  }
-
-  private updateDecorations(): void {
-    // Update decoration manager with current node views
-    for (const [nodeId, view] of this.topicViews) {
-      this.decorationManager.setNodeView(nodeId, view.group)
-    }
-  }
-
-  updateRemoteCursors(cursors: Map<number, RemoteCursor>): void {
-    this.collabCursorView?.updateCursors(cursors)
-  }
-
-  updateRemoteSelections(selections: Map<number, RemoteSelection>): void {
-    this.collabSelectionView?.updateSelections(selections)
-  }
-
-  private calculateContentBounds(): Bounds | null {
-    const bounds = this.layoutEngine.calculate(this.state.doc.root).bounds
-    if (bounds.width === 0 && bounds.height === 0) return null
-    return bounds
-  }
-
+  
   destroy(): void {
-    this.layoutEngine.stopAnimation()
-    this.decorationManager.clear()
-    
-    this.collabCursorView?.destroy()
-    this.collabSelectionView?.destroy()
-
-    for (const view of this.topicViews.values()) {
-      view.destroy()
-    }
-    for (const view of this.connectionViews.values()) {
-      view.destroy()
-    }
-    
-    this.topicViews.clear()
-    this.connectionViews.clear()
-    this.viewportController.destroy()
+    this._rootBranch?.destroy()
+    this._rootBranch = null
+    this._branchMap.clear()
+    this.nodeViewFactory.clear()
     this.app.destroy()
   }
 }
+
+export default EditorView

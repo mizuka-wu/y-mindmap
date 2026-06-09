@@ -1,4 +1,4 @@
-import { Text } from 'leafer-ui'
+import { Text, Group } from 'leafer-ui'
 
 export interface TextOptions {
   x: number
@@ -8,95 +8,52 @@ export interface TextOptions {
   fontSize: number
   fontFamily: string
   fill: string
-  textAlign: 'left' | 'center' | 'right'
-  verticalAlign: 'top' | 'middle' | 'bottom'
+  textAlign: string
+  verticalAlign: string
 }
 
-export function wrapText(
-  text: string,
-  maxWidth: number,
-  fontSize: number,
-  fontFamily: string
-): string[] {
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return [text]
-
-  ctx.font = `${fontSize}px ${fontFamily}`
-
-  const words = text.split('')
-  const lines: string[] = []
-  let currentLine = ''
-
-  for (const char of words) {
-    const testLine = currentLine + char
-    const metrics = ctx.measureText(testLine)
-
-    if (metrics.width > maxWidth && currentLine.length > 0) {
-      lines.push(currentLine)
-      currentLine = char
-    } else {
-      currentLine = testLine
-    }
-  }
-
-  if (currentLine.length > 0) {
-    lines.push(currentLine)
-  }
-
-  return lines
-}
-
-export function calculateTextSize(
-  text: string,
-  maxWidth: number,
-  fontSize: number,
-  fontFamily: string
-): { width: number; height: number } {
-  const lines = wrapText(text, maxWidth, fontSize, fontFamily)
-  const lineHeight = fontSize * 1.4
-
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return { width: maxWidth, height: lineHeight * lines.length }
-
-  ctx.font = `${fontSize}px ${fontFamily}`
-
-  let maxLineWidth = 0
-  for (const line of lines) {
-    const metrics = ctx.measureText(line)
-    maxLineWidth = Math.max(maxLineWidth, metrics.width)
-  }
-
-  return {
-    width: Math.min(maxLineWidth + 20, maxWidth),
-    height: lineHeight * lines.length + 16,
-  }
-}
-
-export function createWrappedText(
-  text: string,
-  options: TextOptions
-): Text {
-  const lines = wrapText(text, options.width - 20, options.fontSize, options.fontFamily)
-  const lineHeight = options.fontSize * 1.4
-  const totalHeight = lineHeight * lines.length
-
-  let startY = options.y + 8
-  if (options.verticalAlign === 'middle') {
-    startY = options.y + (options.height - totalHeight) / 2
-  } else if (options.verticalAlign === 'bottom') {
-    startY = options.y + options.height - totalHeight - 8
-  }
-
+export function createWrappedText(text: string, options: TextOptions): Text {
   return new Text({
-    x: options.x + 10,
-    y: startY,
-    text: lines.join('\n'),
-    width: options.width - 20,
+    x: options.x,
+    y: options.y,
+    width: options.width,
+    height: options.height,
+    text,
     fontSize: options.fontSize,
     fontFamily: options.fontFamily,
     fill: options.fill,
-    textAlign: options.textAlign,
+    textAlign: options.textAlign as any,
+    verticalAlign: options.verticalAlign as any,
+    wrap: 'break',
   })
+}
+
+export function measureText(text: string, fontSize: number, fontFamily: string): { width: number; height: number } {
+  const tempText = new Text({
+    text,
+    fontSize,
+    fontFamily,
+  })
+  
+  return {
+    width: tempText.width || text.length * fontSize * 0.6,
+    height: tempText.height || fontSize * 1.2,
+  }
+}
+
+export function truncateText(text: string, maxWidth: number, fontSize: number): string {
+  const avgCharWidth = fontSize * 0.6
+  const maxChars = Math.floor(maxWidth / avgCharWidth)
+  
+  if (text.length <= maxChars) {
+    return text
+  }
+  
+  return text.substring(0, maxChars - 3) + '...'
+}
+
+export default {
+  createWrappedText,
+  measureText,
+  truncateText,
 }

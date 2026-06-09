@@ -41,7 +41,8 @@ export interface LayoutResult {
 }
 
 export interface LayoutEngine {
-  calculate(root: MindMapNode, options?: LayoutOptions): LayoutResult
+  calculate(root: MindMapNode, options?: LayoutOptions, dirtyNodes?: Set<string>): LayoutResult
   calculateNodeSize(node: MindMapNode): Size
   calculateConnectionPath(from: NodeLayout, to: NodeLayout): string
+  clearCache?(): void
 }
