@@ -1,11 +1,13 @@
 import { App, Leafer, Group } from 'leafer-ui'
 import { EditorState, MindMapDocument, MindMapNode, Transaction, Selection } from '@y-mindmap/state'
+import type { RelationshipData } from '@y-mindmap/state'
 import type { ConnectionLayout } from '@y-mindmap/layout'
 import { MapLayoutEngine, type LayoutEngine, type LayoutResult } from '@y-mindmap/layout'
 import { NodeViewFactory } from './node-views/node-view-factory'
 import { TopicNodeView } from './node-views/topic-node-view'
 import { BranchNodeView } from './node-views/containers/branch-node-view'
 import { ConnectionNodeView } from './node-views/connection-node-view'
+import { RelationshipNodeView, RelationshipTitleNodeView } from './node-views/relationships/relationship-node-view'
 import { DirtyFlag } from './core/node-view'
 import { themeManager, type ThemeChangeListener } from './core/theme-manager'
 import type { ThemeData } from '@y-mindmap/core'
@@ -30,6 +32,8 @@ export class EditorView {
   private _rootView: TopicNodeView | null = null
   private _rootBranch: BranchNodeView | null = null
   private _branchMap: Map<string, BranchNodeView> = new Map()
+  private _relationshipViews: Map<string, RelationshipNodeView> = new Map()
+  private _relationshipTitleViews: Map<string, RelationshipTitleNodeView> = new Map()
   
   private _updateScheduled: boolean = false
   private _isUpdating: boolean = false
@@ -163,6 +167,7 @@ export class EditorView {
       this.validateLayoutViews(root)
       this.validatePaintViews(root)
       this.updateConnectionViews()
+      this.updateRelationshipViews()
       this.updateSelection()
       
       this._pendingDirtyNodeIds.clear()
@@ -269,6 +274,59 @@ export class EditorView {
       view.validate()
     }
   }
+
+  private updateRelationshipViews(): void {
+    for (const [relId, relView] of this._relationshipViews) {
+      relView.updateEndpoints()
+      relView.validate()
+    }
+  }
+
+  setRelationships(relationships: RelationshipData[]): void {
+    for (const [relId, relView] of this._relationshipViews) {
+      relView.destroy()
+    }
+    this._relationshipViews.clear()
+    this._relationshipTitleViews.clear()
+
+    for (const relData of relationships) {
+      const relNode = {
+        id: relData.id,
+        title: relData.title || '',
+        type: 'relationship',
+        children: {},
+        markers: [],
+        labels: [],
+        attachments: [],
+        mathFormulas: [],
+        codeBlocks: [],
+      } as unknown as MindMapNode
+
+      const relView = this.nodeViewFactory.createRelationshipView(relNode, relData)
+      const titleView = this.nodeViewFactory.createRelationshipTitleView(relNode, relData.title || '')
+
+      const end1View = this.nodeViewFactory.getTopicView(relData.end1Id)
+      const end2View = this.nodeViewFactory.getTopicView(relData.end2Id)
+
+      relView.setEnd1View(end1View || null)
+      relView.setEnd2View(end2View || null)
+      relView.setTitleView(titleView)
+
+      this.overlayLayer.add(relView.group)
+      this.overlayLayer.add(titleView.group)
+
+      this._relationshipViews.set(relData.id, relView)
+      this._relationshipTitleViews.set(relData.id, titleView)
+    }
+  }
+
+  getRelationshipView(relId: string): RelationshipNodeView | undefined {
+    return this._relationshipViews.get(relId)
+  }
+
+  getRelationshipTitleView(relId: string): RelationshipTitleNodeView | undefined {
+    return this._relationshipTitleViews.get(relId)
+  }
   
   private updateSelection(): void {
     if (!this.state) return
@@ -356,6 +414,9 @@ export class EditorView {
     if (this._rootBranch) {
       this._rootBranch.refreshColorStyles()
     }
+    for (const relView of this._relationshipViews.values()) {
+      relView.refreshColorStyles()
+    }
   }
   
   getTopicView(nodeId: string): TopicNodeView | undefined {
@@ -371,6 +432,11 @@ export class EditorView {
       this._themeUnsubscribe()
       this._themeUnsubscribe = null
     }
+    for (const relView of this._relationshipViews.values()) {
+      relView.destroy()
+    }
+    this._relationshipViews.clear()
+    this._relationshipTitleViews.clear()
     this._rootBranch?.destroy()
     this._rootBranch = null
     this._branchMap.clear()
