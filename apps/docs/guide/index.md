@@ -9,7 +9,7 @@ Y-MindMap 是一个基于 Leafer.js 的现代化思维导图编辑器，采用 P
 - **主题系统** - 7 个预置主题，支持自定义主题
 - **实时协作** - 基于 Yjs 的协作编辑，支持锁机制
 - **AI 集成** - 内置 WebMCP 支持，提供智能建议
-- **插件系统** - 灵活的插件架构，支持各种扩展
+- **扩展系统** - 灵活的扩展架构，支持命令注册、事件监听、生命周期管理
 - **高性能** - 虚拟渲染、布局缓存、增量更新
 
 ## 架构
@@ -18,7 +18,7 @@ Y-MindMap 是一个基于 Leafer.js 的现代化思维导图编辑器，采用 P
 ┌─────────────────────────────────────────────────────────┐
 │                    MindMapEditor                         │
 ├─────────────────────────────────────────────────────────┤
-│  Commands    │  Interaction    │  UI      │  Plugins    │
+│  Commands    │  Interaction    │  UI      │  Extensions  │
 ├─────────────────────────────────────────────────────────┤
 │                    State Layer                           │
 │  (MindMapDocument, MindMapNode, Selection, Transaction) │
@@ -45,7 +45,8 @@ Y-MindMap 是一个基于 Leafer.js 的现代化思维导图编辑器，采用 P
 | `@y-mindmap/commands` | 命令系统 |
 | `@y-mindmap/interaction` | 交互处理 |
 | `@y-mindmap/ui` | UI 组件 |
-| `@y-mindmap/plugins` | 插件系统 |
+| `@y-mindmap/extension` | 扩展框架（createExtension, ExtensionManager） |
+| `@y-mindmap/extensions` | 内置扩展实现（17 个扩展） |
 | `@y-mindmap/collab` | 协作编辑 |
 | `@y-mindmap/ai` | AI 集成 |
 | `@y-mindmap/webmcp` | WebMCP 支持 |

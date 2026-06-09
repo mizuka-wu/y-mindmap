@@ -26,7 +26,8 @@ yarn add @y-mindmap/vanilla
 @y-mindmap/ui            # UI 组件
 
 # 扩展包
-@y-mindmap/plugins       # 插件系统
+@y-mindmap/extension     # 扩展框架（createExtension, ExtensionManager, ExtensionContext）
+@y-mindmap/extensions    # 内置扩展实现（17 个扩展）
 @y-mindmap/collab        # 协作编辑
 @y-mindmap/ai            # AI 集成
 @y-mindmap/webmcp        # WebMCP 支持
@@ -51,6 +52,12 @@ import { MapLayout, TreeLayout } from '@y-mindmap/layout'
 
 // 引入特定主题
 import { DARK_THEME, CLASSIC_THEME } from '@y-mindmap/view'
+
+// 引入扩展框架
+import { createExtension, ExtensionManager } from '@y-mindmap/extension'
+
+// 引入内置扩展
+import { StarterKit, Collab } from '@y-mindmap/extensions'
 
 // 引入特定格式
 import { XMindImporter } from '@y-mindmap/formats/xmind'

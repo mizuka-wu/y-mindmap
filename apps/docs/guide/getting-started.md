@@ -36,48 +36,32 @@ const editor = createMindMap(container, {
 ## 协作编辑
 
 ```typescript
-import { createMindMap } from '@y-mindmap/vanilla'
+import { createMindMap, Collab } from '@y-mindmap/vanilla'
 import * as Y from 'yjs'
-import { WebsocketProvider } from 'y-websocket'
 
 const ydoc = new Y.Doc()
-const wsProvider = new WebsocketProvider('ws://localhost:1234', 'room-id', ydoc)
-
 const editor = createMindMap(container, {
-  ydoc,
-  user: {
-    id: 'user-1',
-    name: '张三',
-    account: 'zhangsan@example.com',
-    color: '#FF6B6B',
-  },
+  extensions: [
+    ...StarterKit(),
+    Collab.configure({ ydoc }),
+  ],
 })
 ```
 
-## 使用插件
+## 使用扩展
 
 ```typescript
-import { createMindMap } from '@y-mindmap/vanilla'
+import { createMindMap, StarterKit, Collab } from '@y-mindmap/vanilla'
 
-const myPlugin = {
-  id: 'my-plugin',
-  name: '我的插件',
-  version: '1.0.0',
-  
-  init(api) {
-    api.registerCommand('my-command', {
-      name: 'my-command',
-      description: '自定义命令',
-      execute: (state, input, dispatch) => {
-        api.showNotification({ message: '执行成功', type: 'success' })
-        return true
-      },
-    })
-  },
-}
+// 默认使用 StarterKit（包含所有扩展）
+const editor = createMindMap(container)
 
+// 自定义扩展配置
 const editor = createMindMap(container, {
-  plugins: [myPlugin],
+  extensions: [
+    ...StarterKit({ contextMenu: false }),
+    Collab.configure({ ydoc }),
+  ],
 })
 ```
 

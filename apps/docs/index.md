@@ -30,8 +30,8 @@ features:
     title: AI 友好
     details: 内置 WebMCP 支持，提供状态描述、智能建议等功能
   - icon: 🔌
-    title: 插件系统
-    details: 灵活的插件架构，支持命令、主题、布局等扩展
+    title: 扩展系统
+    details: 灵活的扩展架构，支持命令注册、事件监听、生命周期管理
   - icon: ⚡
     title: 高性能
     details: 虚拟渲染、布局缓存、增量更新等性能优化
