@@ -16,11 +16,17 @@ export const DragDrop = createExtension<DragDropOptions>({
   },
 
   setup(ctx, options) {
-    // TODO: 绑定拖拽事件
-    // TODO: 创建拖拽预览和放置指示器
+    if (!ctx.view) return
+
+    const view = ctx.view as any
+    if (typeof view.initDragDrop === 'function') {
+      view.initDragDrop()
+    }
 
     return () => {
-      // TODO: 清理拖拽相关 DOM 和事件监听
+      if (typeof view.destroyDragDrop === 'function') {
+        view.destroyDragDrop()
+      }
     }
   },
 })

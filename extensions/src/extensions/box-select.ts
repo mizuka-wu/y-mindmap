@@ -9,12 +9,17 @@ export const BoxSelect = createExtension({
   },
 
   setup(ctx) {
-    // TODO: 绑定框选事件（pointerdown → pointermove → pointerup）
-    // TODO: 创建选框矩形
-    // TODO: 计算框选节点
+    if (!ctx.view) return
+
+    const view = ctx.view as any
+    if (typeof view.initBoxSelect === 'function') {
+      view.initBoxSelect()
+    }
 
     return () => {
-      // TODO: 清理选框 DOM 和事件监听
+      if (typeof view.destroyBoxSelect === 'function') {
+        view.destroyBoxSelect()
+      }
     }
   },
 })

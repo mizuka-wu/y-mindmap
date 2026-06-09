@@ -74,6 +74,7 @@ import {
   CursorState,
 } from "@y-mindmap/collab";
 import { PluginManager, Plugin, PluginEvent } from "@y-mindmap/plugins";
+import { ExtensionManager, ExtensionDefinition } from "@y-mindmap/extension";
 
 export interface MindMapEditorOptions {
   container: HTMLElement;
@@ -92,6 +93,7 @@ export interface MindMapEditorOptions {
   user?: CollaboratorUser;
   collab?: CollabOptions;
   plugins?: Plugin[];
+  extensions?: ExtensionDefinition[];
 }
 
 export class MindMapEditor {
@@ -123,6 +125,7 @@ export class MindMapEditor {
   private collaborators: CollaboratorManager | null = null;
   private collabManager: CollabManager | null = null;
   private pluginManager: PluginManager;
+  private extensionManager: ExtensionManager;
   private uiContext: UIContext;
 
   constructor(options: MindMapEditorOptions) {
@@ -247,6 +250,14 @@ export class MindMapEditor {
         this.use(plugin);
       }
     }
+
+    this.extensionManager = new ExtensionManager();
+    if (options.extensions) {
+      for (const ext of options.extensions) {
+        this.extensionManager.register(ext);
+      }
+    }
+    this.extensionManager.setup(this.state, (tr) => this.dispatch(tr), this.view);
 
     this.bindDOMEvents();
   }
@@ -511,6 +522,7 @@ export class MindMapEditor {
     this.uiManager.update();
     this.syncTransactionToYDoc(tr);
     this.pluginManager.updateState(this.state);
+    this.extensionManager.updateState(this.state);
     this.emitTransactionEvents(tr);
   }
 
@@ -1050,6 +1062,7 @@ export class MindMapEditor {
   }
 
   destroy(): void {
+    this.extensionManager.destroy();
     this.pluginManager.destroy();
     this.collabManager?.destroy();
     this.binding?.destroy();

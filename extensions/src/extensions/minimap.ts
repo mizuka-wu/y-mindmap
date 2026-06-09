@@ -20,8 +20,9 @@ export const Minimap = createExtension<MinimapOptions>({
   },
 
   setup(ctx, options) {
-    // TODO: 创建 minimap DOM
-    // TODO: 监听 view 变化更新 minimap
+    // TODO: Minimap 需要额外实现，当前 EditorView 已有 Minimap 支持
+    // 但通过 options 配置而非扩展方式，后续可通过 view._createMiniMap 对接
+    if (!ctx.view) return
 
     return () => {
       // TODO: 清理 minimap DOM

@@ -18,8 +18,9 @@ export const ZoomControls = createExtension<ZoomControlsOptions>({
   },
 
   setup(ctx, options) {
-    // TODO: 创建 zoom 控件 DOM
-    // TODO: 绑定 zoom 事件
+    // TODO: ZoomControls 需要额外实现，当前 EditorView 已有 ZoomControls 支持
+    // 但通过 options 配置而非扩展方式，后续可通过 view._createZoomControls 对接
+    if (!ctx.view) return
 
     return () => {
       // TODO: 清理 zoom 控件 DOM

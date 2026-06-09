@@ -14,12 +14,17 @@ export const RichTextEdit = createExtension<RichTextEditOptions>({
   },
 
   setup(ctx, options) {
-    // TODO: 绑定双击编辑事件
-    // TODO: 创建富文本覆盖层
-    // TODO: 显示格式工具栏
+    if (!ctx.view) return
+
+    const view = ctx.view as any
+    if (typeof view.initRichTextEdit === 'function') {
+      view.initRichTextEdit()
+    }
 
     return () => {
-      // TODO: 清理编辑覆盖层和工具栏
+      if (typeof view.destroyRichTextEdit === 'function') {
+        view.destroyRichTextEdit()
+      }
     }
   },
 })

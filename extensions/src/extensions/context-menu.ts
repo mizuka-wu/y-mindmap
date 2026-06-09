@@ -20,11 +20,17 @@ export const ContextMenu = createExtension<ContextMenuOptions>({
   },
 
   setup(ctx, options) {
-    // TODO: 监听右键事件
-    // TODO: 显示菜单
+    if (!ctx.view) return
+
+    const view = ctx.view as any
+    if (typeof view.initContextMenu === 'function') {
+      view.initContextMenu()
+    }
 
     return () => {
-      // TODO: 清理菜单 DOM 和事件监听
+      if (typeof view.destroyContextMenu === 'function') {
+        view.destroyContextMenu()
+      }
     }
   },
 })
