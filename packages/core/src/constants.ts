@@ -266,5 +266,200 @@ export const PRESET_THEMES: Record<string, ThemeData> = {
       }
     },
     background: { color: '#FFFFFF' }
+  },
+  classic: {
+    id: 'classic',
+    title: 'Classic',
+    centralTopic: {
+      id: 'central',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'roundedRect',
+        [StyleKey.FILL_COLOR]: '#1A365D',
+        [StyleKey.BORDER_COLOR]: '#0D2137',
+        [StyleKey.BORDER_WIDTH]: 2,
+        [StyleKey.TEXT_COLOR]: '#FFFFFF',
+        [StyleKey.FONT_SIZE]: 18,
+        [StyleKey.FONT_WEIGHT]: 'bold',
+        [StyleKey.CORNER_RADIUS]: 6,
+      }
+    },
+    mainTopic: {
+      id: 'main',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'roundedRect',
+        [StyleKey.FILL_COLOR]: '#EBF5FB',
+        [StyleKey.BORDER_COLOR]: '#1A365D',
+        [StyleKey.BORDER_WIDTH]: 1,
+        [StyleKey.TEXT_COLOR]: '#1A365D',
+        [StyleKey.FONT_SIZE]: 14,
+        [StyleKey.CORNER_RADIUS]: 4,
+      }
+    },
+    subTopic: {
+      id: 'sub',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'roundedRect',
+        [StyleKey.FILL_COLOR]: '#FFFFFF',
+        [StyleKey.BORDER_COLOR]: '#A0B4C8',
+        [StyleKey.BORDER_WIDTH]: 1,
+        [StyleKey.TEXT_COLOR]: '#333333',
+        [StyleKey.FONT_SIZE]: 12,
+        [StyleKey.CORNER_RADIUS]: 3,
+      }
+    },
+    connections: {
+      id: 'connections',
+      properties: {
+        [StyleKey.LINE_CLASS]: 'elbow',
+        [StyleKey.LINE_COLOR]: '#1A365D',
+        [StyleKey.LINE_WIDTH]: 2,
+      }
+    },
+    background: { color: '#F8FAFC' }
+  },
+  nature: {
+    id: 'nature',
+    title: 'Nature',
+    centralTopic: {
+      id: 'central',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'roundedRect',
+        [StyleKey.FILL_COLOR]: '#2D6A4F',
+        [StyleKey.BORDER_COLOR]: '#1B4332',
+        [StyleKey.BORDER_WIDTH]: 2,
+        [StyleKey.TEXT_COLOR]: '#FFFFFF',
+        [StyleKey.FONT_SIZE]: 18,
+        [StyleKey.FONT_WEIGHT]: 'bold',
+        [StyleKey.CORNER_RADIUS]: 12,
+      }
+    },
+    mainTopic: {
+      id: 'main',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'capsule',
+        [StyleKey.FILL_COLOR]: '#D8F3DC',
+        [StyleKey.BORDER_COLOR]: '#52B788',
+        [StyleKey.BORDER_WIDTH]: 1,
+        [StyleKey.TEXT_COLOR]: '#1B4332',
+        [StyleKey.FONT_SIZE]: 14,
+      }
+    },
+    subTopic: {
+      id: 'sub',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'capsule',
+        [StyleKey.FILL_COLOR]: '#F0FFF4',
+        [StyleKey.BORDER_COLOR]: '#95D5B2',
+        [StyleKey.BORDER_WIDTH]: 1,
+        [StyleKey.TEXT_COLOR]: '#2D6A4F',
+        [StyleKey.FONT_SIZE]: 12,
+      }
+    },
+    connections: {
+      id: 'connections',
+      properties: {
+        [StyleKey.LINE_CLASS]: 'curve',
+        [StyleKey.LINE_COLOR]: '#52B788',
+        [StyleKey.LINE_WIDTH]: 2,
+      }
+    },
+    background: { color: '#F7FFF7' }
+  },
+  academic: {
+    id: 'academic',
+    title: 'Academic',
+    centralTopic: {
+      id: 'central',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'roundedRect',
+        [StyleKey.FILL_COLOR]: '#7C3AED',
+        [StyleKey.BORDER_COLOR]: '#5B21B6',
+        [StyleKey.BORDER_WIDTH]: 2,
+        [StyleKey.TEXT_COLOR]: '#FFFFFF',
+        [StyleKey.FONT_SIZE]: 18,
+        [StyleKey.FONT_WEIGHT]: 'bold',
+        [StyleKey.CORNER_RADIUS]: 4,
+      }
+    },
+    mainTopic: {
+      id: 'main',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'roundedRect',
+        [StyleKey.FILL_COLOR]: '#EDE9FE',
+        [StyleKey.BORDER_COLOR]: '#7C3AED',
+        [StyleKey.BORDER_WIDTH]: 1,
+        [StyleKey.TEXT_COLOR]: '#3B0764',
+        [StyleKey.FONT_SIZE]: 14,
+        [StyleKey.CORNER_RADIUS]: 2,
+      }
+    },
+    subTopic: {
+      id: 'sub',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'rectangle',
+        [StyleKey.FILL_COLOR]: '#FFFFFF',
+        [StyleKey.BORDER_COLOR]: '#C4B5FD',
+        [StyleKey.BORDER_WIDTH]: 1,
+        [StyleKey.TEXT_COLOR]: '#4C1D95',
+        [StyleKey.FONT_SIZE]: 12,
+        [StyleKey.CORNER_RADIUS]: 0,
+      }
+    },
+    connections: {
+      id: 'connections',
+      properties: {
+        [StyleKey.LINE_CLASS]: 'straight',
+        [StyleKey.LINE_COLOR]: '#7C3AED',
+        [StyleKey.LINE_WIDTH]: 1,
+      }
+    },
+    background: { color: '#FAFAFA' }
+  },
+  candy: {
+    id: 'candy',
+    title: 'Candy',
+    centralTopic: {
+      id: 'central',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'stadium',
+        [StyleKey.FILL_COLOR]: '#EC4899',
+        [StyleKey.BORDER_COLOR]: '#DB2777',
+        [StyleKey.BORDER_WIDTH]: 2,
+        [StyleKey.TEXT_COLOR]: '#FFFFFF',
+        [StyleKey.FONT_SIZE]: 18,
+        [StyleKey.FONT_WEIGHT]: 'bold',
+      }
+    },
+    mainTopic: {
+      id: 'main',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'capsule',
+        [StyleKey.FILL_COLOR]: '#FDE68A',
+        [StyleKey.BORDER_COLOR]: '#F59E0B',
+        [StyleKey.BORDER_WIDTH]: 1,
+        [StyleKey.TEXT_COLOR]: '#92400E',
+        [StyleKey.FONT_SIZE]: 14,
+      }
+    },
+    subTopic: {
+      id: 'sub',
+      properties: {
+        [StyleKey.SHAPE_CLASS]: 'capsule',
+        [StyleKey.FILL_COLOR]: '#BBF7D0',
+        [StyleKey.BORDER_COLOR]: '#34D399',
+        [StyleKey.BORDER_WIDTH]: 1,
+        [StyleKey.TEXT_COLOR]: '#065F46',
+        [StyleKey.FONT_SIZE]: 12,
+      }
+    },
+    connections: {
+      id: 'connections',
+      properties: {
+        [StyleKey.LINE_CLASS]: 'curve',
+        [StyleKey.LINE_COLOR]: '#EC4899',
+        [StyleKey.LINE_WIDTH]: 2,
+      }
+    },
+    background: { color: '#FFF7ED' }
   }
 }

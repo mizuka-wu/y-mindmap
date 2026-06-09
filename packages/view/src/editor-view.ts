@@ -614,6 +614,30 @@ export class EditorView {
     this._refreshAllColorStyles()
   }
 
+  getTheme(): ThemeData {
+    return themeManager.getTheme()
+  }
+
+  registerTheme(theme: ThemeData): void {
+    themeManager.registerTheme(theme)
+  }
+
+  getAvailableThemes(): Array<{ id: string; title: string }> {
+    return themeManager.getAvailableThemes()
+  }
+
+  exportTheme(themeId?: string): ThemeData | null {
+    return themeManager.exportTheme(themeId)
+  }
+
+  importTheme(data: ThemeData): void {
+    themeManager.importTheme(data)
+  }
+
+  getBackgroundColor(): string | undefined {
+    return themeManager.getBackgroundColor()
+  }
+
   private _refreshAllColorStyles(): void {
     if (this._rootBranch) {
       this._rootBranch.refreshColorStyles()

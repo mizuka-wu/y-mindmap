@@ -1,6 +1,5 @@
 import { StyleKey, DEFAULT_TOPIC_STYLE, DEFAULT_CONNECTION_STYLE } from '@y-mindmap/core'
 import type { NodeView } from './node-view'
-import type { TopicNodeView } from '../node-views/topic-node-view'
 import { themeManager } from './theme-manager'
 
 interface RGBA {
@@ -103,9 +102,24 @@ export class StyleManager {
     return branchView.getNode().type === 'callout'
   }
 
-  private getNodeLevel(nodeView: NodeView): 'central' | 'main' | 'sub' | null {
+  /**
+   * Resolve node level for theme style lookup.
+   * Returns a key that maps to a ThemeData field in ThemeManager.
+   */
+  private getNodeLevel(nodeView: NodeView): string | null {
     const node = nodeView.getNode()
-    if (node.type === 'root') return 'central'
+    switch (node.type) {
+      case 'root':
+        return 'central'
+      case 'detached':
+        return 'floating'
+      case 'summary':
+        return 'summary'
+      case 'callout':
+        return 'sub'
+      default:
+        break
+    }
 
     const parent = nodeView.getParent?.()
     if (parent?.getNode?.()?.type === 'root') return 'main'
@@ -113,16 +127,26 @@ export class StyleManager {
     return 'sub'
   }
 
+  /**
+   * Complete default style value lookup.
+   * Covers all StyleKey entries defined in the core types.
+   */
   getDefaultStyleValue(key: StyleKey): any {
     const defaults: Record<string, any> = {
+      // Topic shape
       'shape-class': DEFAULT_TOPIC_STYLE.shapeClass,
       'corner-radius': DEFAULT_TOPIC_STYLE.cornerRadius,
       'fill-color': DEFAULT_TOPIC_STYLE.fillColor,
+      'fill-gradient': undefined,
+      'fill-pattern': undefined,
       'fill-opacity': DEFAULT_TOPIC_STYLE.fillOpacity,
       'border-color': DEFAULT_TOPIC_STYLE.borderColor,
       'border-width': DEFAULT_TOPIC_STYLE.borderWidth,
       'border-pattern': DEFAULT_TOPIC_STYLE.borderStyle,
       'border-opacity': DEFAULT_TOPIC_STYLE.borderOpacity,
+      'border-line-pattern': undefined,
+
+      // Typography
       'font-family': DEFAULT_TOPIC_STYLE.fontFamily,
       'font-size': DEFAULT_TOPIC_STYLE.fontSize,
       'font-weight': DEFAULT_TOPIC_STYLE.fontWeight,
@@ -131,11 +155,32 @@ export class StyleManager {
       'text-align': DEFAULT_TOPIC_STYLE.textAlign,
       'text-decoration': DEFAULT_TOPIC_STYLE.textDecoration,
       'text-transform': DEFAULT_TOPIC_STYLE.textTransform,
+
+      // Shadow
+      'shadow-color': DEFAULT_TOPIC_STYLE.shadowColor ?? undefined,
+      'shadow-blur': DEFAULT_TOPIC_STYLE.shadowBlur ?? undefined,
+      'shadow-offset-x': DEFAULT_TOPIC_STYLE.shadowOffsetX ?? undefined,
+      'shadow-offset-y': DEFAULT_TOPIC_STYLE.shadowOffsetY ?? undefined,
+
+      // Spacing
+      'padding-top': DEFAULT_TOPIC_STYLE.paddingTop,
+      'padding-right': DEFAULT_TOPIC_STYLE.paddingRight,
+      'padding-bottom': DEFAULT_TOPIC_STYLE.paddingBottom,
+      'padding-left': DEFAULT_TOPIC_STYLE.paddingLeft,
+      'margin-top': DEFAULT_TOPIC_STYLE.marginTop,
+      'margin-right': DEFAULT_TOPIC_STYLE.marginRight,
+      'margin-bottom': DEFAULT_TOPIC_STYLE.marginBottom,
+      'margin-left': DEFAULT_TOPIC_STYLE.marginLeft,
+
+      // Connection
       'line-class': DEFAULT_CONNECTION_STYLE.lineClass,
       'line-color': DEFAULT_CONNECTION_STYLE.lineColor,
       'line-width': DEFAULT_CONNECTION_STYLE.lineWidth,
       'line-pattern': DEFAULT_CONNECTION_STYLE.lineStyle,
       'line-tapered': DEFAULT_CONNECTION_STYLE.tapered,
+      'line-corner': DEFAULT_CONNECTION_STYLE.lineCorner,
+      'start-arrow': undefined,
+      'end-arrow': undefined,
     }
     return defaults[key]
   }
