@@ -7,8 +7,9 @@ export interface ExtensionContext {
   dispatch: (tr: Transaction) => void
   view: EditorView | null
   executeCommand: (name: string, args?: any) => boolean
+  registerCommand: (name: string, command: (state: EditorState, dispatch: (tr: Transaction) => void, args?: any) => boolean) => void
+  unregisterCommand: (name: string) => void
 
-  // 事件系统
   on: (event: string, handler: (...args: any[]) => void) => void
   off: (event: string, handler: (...args: any[]) => void) => void
   emit: (event: string, ...args: any[]) => void

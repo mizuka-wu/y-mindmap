@@ -1,4 +1,5 @@
 import { createExtension } from '@y-mindmap/extension'
+import { PDFExporter } from '@y-mindmap/formats/pdf'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ExportPDFOptions {
@@ -16,25 +17,31 @@ export const ExportPDF = createExtension<ExportPDFOptions>({
   setup(ctx) {
     if (!ctx.view) return
 
-    // TODO: 从 MindMapEditor 的 PDFExporter 提取实现
-    // 1. 从 @y-mindmap/formats/pdf 导入：
-    //    import { PDFExporter } from '@y-mindmap/formats/pdf'
-    //
-    // 2. 创建导出器实例：
-    //    const exporter = new PDFExporter()
-    //
-    // 3. 注册命令：
-    //    - exportPDF: 调用 exporter.export(canvas, contentBounds, options)，返回 Blob
-    //      其中 canvas = ctx.view.getCanvas()
-    //      contentBounds 需要从 state.doc.root 计算所有节点的边界
-    //
-    // 4. 可选：添加菜单项或工具栏按钮
-    //
-    // 5. 返回清理函数
+    const exporter = new PDFExporter()
+
+    ctx.registerCommand('exportPDF', (state, dispatch, args) => {
+      if (!ctx.view) return false
+      
+      const canvas = ctx.view.getCanvas()
+      const contentBounds = ctx.view.getContentBounds()
+      const options = args as { orientation?: 'portrait' | 'landscape'; title?: string } | undefined
+      
+      exporter.export(canvas, contentBounds, options).then((blob) => {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'mindmap.pdf'
+        a.click()
+        URL.revokeObjectURL(url)
+      }).catch((error) => {
+        console.error('Failed to export PDF:', error)
+      })
+      
+      return true
+    })
 
     return () => {
-      // TODO: 清理逻辑
-      // 清理导出器实例（如果有需要）
+      ctx.unregisterCommand('exportPDF')
     }
   },
 })

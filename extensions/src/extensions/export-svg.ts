@@ -1,4 +1,5 @@
 import { createExtension } from '@y-mindmap/extension'
+import { SVGExporter } from '@y-mindmap/formats/svg'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ExportSVGOptions {
@@ -14,23 +15,29 @@ export const ExportSVG = createExtension<ExportSVGOptions>({
   },
 
   setup(ctx) {
-    // TODO: 从 MindMapEditor 的 SVGExporter 提取实现
-    // 1. 从 @y-mindmap/formats/svg 导入：
-    //    import { SVGExporter } from '@y-mindmap/formats/svg'
-    //
-    // 2. 创建导出器实例：
-    //    const exporter = new SVGExporter()
-    //
-    // 3. 注册命令：
-    //    - exportSVG: 调用 exporter.export(ctx.state.doc.root, options)，返回字符串
-    //
-    // 4. 可选：添加菜单项或工具栏按钮
-    //
-    // 5. 返回清理函数
+    const exporter = new SVGExporter()
+
+    ctx.registerCommand('exportSVG', (state, dispatch, args) => {
+      const doc = state.doc
+      const options = args as { width?: number; height?: number; backgroundColor?: string } | undefined
+      
+      exporter.export(doc, options).then((svgString) => {
+        const blob = new Blob([svgString], { type: 'image/svg+xml' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'mindmap.svg'
+        a.click()
+        URL.revokeObjectURL(url)
+      }).catch((error) => {
+        console.error('Failed to export SVG:', error)
+      })
+      
+      return true
+    })
 
     return () => {
-      // TODO: 清理逻辑
-      // 清理导出器实例（如果有需要）
+      ctx.unregisterCommand('exportSVG')
     }
   },
 })

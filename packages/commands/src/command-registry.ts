@@ -32,6 +32,10 @@ export class CommandRegistry {
     this.commands.set(name, command)
   }
 
+  unregister(name: string): void {
+    this.commands.delete(name)
+  }
+
   get(name: string): Command | undefined {
     return this.commands.get(name)
   }

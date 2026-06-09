@@ -15,12 +15,23 @@ export class ExtensionManager {
     this.extensions.set(extension.name, extension)
   }
 
-  setup(state: EditorState, dispatch: (tr: Transaction) => void, view: EditorView | null): void {
+  setup(
+    state: EditorState,
+    dispatch: (tr: Transaction) => void,
+    view: EditorView | null,
+    options?: {
+      executeCommand?: (name: string, args?: any) => boolean
+      registerCommand?: (name: string, command: (state: EditorState, dispatch: (tr: Transaction) => void, args?: any) => boolean) => void
+      unregisterCommand?: (name: string) => void
+    }
+  ): void {
     this.ctx = {
       state,
       dispatch,
       view,
-      executeCommand: (name, args) => false,
+      executeCommand: options?.executeCommand ?? (() => false),
+      registerCommand: options?.registerCommand ?? (() => {}),
+      unregisterCommand: options?.unregisterCommand ?? (() => {}),
       on: (event, handler) => this.on(event, handler),
       off: (event, handler) => this.off(event, handler),
       emit: (event, ...args) => this.emit(event, ...args),

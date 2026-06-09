@@ -1,4 +1,5 @@
 import { createExtension } from '@y-mindmap/extension'
+import { JSONImporter, JSONExporter } from '@y-mindmap/formats/json'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ExportJSONOptions {
@@ -14,25 +15,45 @@ export const ExportJSON = createExtension<ExportJSONOptions>({
   },
 
   setup(ctx) {
-    // TODO: 从 MindMapEditor 的 JSONImporter/JSONExporter 提取实现
-    // 1. 从 @y-mindmap/formats/json 导入：
-    //    import { JSONImporter, JSONExporter } from '@y-mindmap/formats/json'
-    //
-    // 2. 创建导入器和导出器实例：
-    //    const importer = new JSONImporter()
-    //    const exporter = new JSONExporter()
-    //
-    // 3. 注册命令：
-    //    - importJSON: 接受字符串或 File，调用 importer.import()，然后更新文档
-    //    - exportJSON: 调用 exporter.export(ctx.state.doc.root, options)，返回字符串
-    //
-    // 4. 可选：添加菜单项或工具栏按钮
-    //
-    // 5. 返回清理函数
+    const importer = new JSONImporter()
+    const exporter = new JSONExporter()
+
+    ctx.registerCommand('importJSON', (state, dispatch, args) => {
+      const { text } = args as { text: string }
+      
+      importer.import(text).then((doc) => {
+        const tr = state.tr
+        tr.setDoc(doc)
+        dispatch(tr)
+      }).catch((error) => {
+        console.error('Failed to import JSON:', error)
+      })
+      
+      return true
+    })
+
+    ctx.registerCommand('exportJSON', (state, dispatch, args) => {
+      const doc = state.doc
+      const options = args as { spaces?: number } | undefined
+      
+      exporter.export(doc, options).then((text) => {
+        const blob = new Blob([text], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'mindmap.json'
+        a.click()
+        URL.revokeObjectURL(url)
+      }).catch((error) => {
+        console.error('Failed to export JSON:', error)
+      })
+      
+      return true
+    })
 
     return () => {
-      // TODO: 清理逻辑
-      // 清理导入器/导出器实例（如果有需要）
+      ctx.unregisterCommand('importJSON')
+      ctx.unregisterCommand('exportJSON')
     }
   },
 })

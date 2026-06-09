@@ -141,6 +141,9 @@ importers:
       '@y-mindmap/extension':
         specifier: workspace:*
         version: link:../packages/extension
+      '@y-mindmap/formats':
+        specifier: workspace:*
+        version: link:../packages/formats
       '@y-mindmap/interaction':
         specifier: workspace:*
         version: link:../packages/interaction

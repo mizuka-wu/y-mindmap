@@ -257,7 +257,16 @@ export class MindMapEditor {
         this.extensionManager.register(ext);
       }
     }
-    this.extensionManager.setup(this.state, (tr) => this.dispatch(tr), this.view);
+    this.extensionManager.setup(this.state, (tr) => this.dispatch(tr), this.view, {
+      executeCommand: (name, args) => this.executeCommand(name, args),
+      registerCommand: (name, command) => {
+        this.commandRegistry.register(name, {
+          name,
+          execute: (state, dispatch, args) => command(state, dispatch, args),
+        });
+      },
+      unregisterCommand: (name) => this.commandRegistry.unregister(name),
+    });
 
     this.bindDOMEvents();
   }

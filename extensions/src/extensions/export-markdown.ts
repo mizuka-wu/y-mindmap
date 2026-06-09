@@ -1,4 +1,5 @@
 import { createExtension } from '@y-mindmap/extension'
+import { MarkdownImporter, MarkdownExporter } from '@y-mindmap/formats/markdown'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ExportMarkdownOptions {
@@ -14,25 +15,44 @@ export const ExportMarkdown = createExtension<ExportMarkdownOptions>({
   },
 
   setup(ctx) {
-    // TODO: 从 MindMapEditor 的 MarkdownImporter/MarkdownExporter 提取实现
-    // 1. 从 @y-mindmap/formats/markdown 导入：
-    //    import { MarkdownImporter, MarkdownExporter } from '@y-mindmap/formats/markdown'
-    //
-    // 2. 创建导入器和导出器实例：
-    //    const importer = new MarkdownImporter()
-    //    const exporter = new MarkdownExporter()
-    //
-    // 3. 注册命令：
-    //    - importMarkdown: 接受字符串或 File，调用 importer.import()，然后更新文档
-    //    - exportMarkdown: 调用 exporter.export(ctx.state.doc.root)，返回字符串
-    //
-    // 4. 可选：添加菜单项或工具栏按钮
-    //
-    // 5. 返回清理函数
+    const importer = new MarkdownImporter()
+    const exporter = new MarkdownExporter()
+
+    ctx.registerCommand('importMarkdown', (state, dispatch, args) => {
+      const { text } = args as { text: string }
+      
+      importer.import(text).then((doc) => {
+        const tr = state.tr
+        tr.setDoc(doc)
+        dispatch(tr)
+      }).catch((error) => {
+        console.error('Failed to import Markdown:', error)
+      })
+      
+      return true
+    })
+
+    ctx.registerCommand('exportMarkdown', (state, dispatch, args) => {
+      const doc = state.doc
+      
+      exporter.export(doc).then((text) => {
+        const blob = new Blob([text], { type: 'text/markdown' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'mindmap.md'
+        a.click()
+        URL.revokeObjectURL(url)
+      }).catch((error) => {
+        console.error('Failed to export Markdown:', error)
+      })
+      
+      return true
+    })
 
     return () => {
-      // TODO: 清理逻辑
-      // 清理导入器/导出器实例（如果有需要）
+      ctx.unregisterCommand('importMarkdown')
+      ctx.unregisterCommand('exportMarkdown')
     }
   },
 })
