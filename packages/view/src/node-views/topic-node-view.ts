@@ -10,6 +10,7 @@ import { ShapeFactory } from '../shapes/shape-factory'
 import { createWrappedText } from '../utils/text-utils'
 import type { BranchNodeView } from './containers/branch-node-view'
 import { MarkerNodeView, MarkersNodeView } from './components/marker-node-view'
+import { LabelNodeView, LabelsNodeView } from './components/label-node-view'
 
 export class TopicNodeView extends TitleableView {
   private shape: Rect | Ellipse | Path | null = null
@@ -17,6 +18,7 @@ export class TopicNodeView extends TitleableView {
   private expandButton: Group | null = null
   private selectBox: Rect | null = null
   private markerViews: NodeView[] = []
+  private labelsView: LabelsNodeView | null = null
   private imageContainer: Group | null = null
   private _owningBranch: BranchNodeView | null = null
   private _shapeClass: string = 'roundedRect'
@@ -41,6 +43,8 @@ export class TopicNodeView extends TitleableView {
     if (this._node.image) {
       this.renderImage()
     }
+    
+    this._initLabels()
   }
 
   protected getStyledNode(): NodeView {
@@ -110,6 +114,12 @@ export class TopicNodeView extends TitleableView {
     
     if (this._node.image) {
       this.renderImage()
+    }
+    
+    this.refreshMarkerSizes()
+    
+    if (this.labelsView) {
+      this.labelsView.setPosition({ x: 8, y: height + 4 })
     }
   }
   
@@ -257,11 +267,23 @@ export class TopicNodeView extends TitleableView {
       strokeWidth: 1,
     })
     
+    const isCollapsed = this._node.isFolded
+    const children = this._node.children
+    const descendantCount = Array.isArray(children) ? children.length : 0
+    
+    let displayText: string
+    if (isCollapsed) {
+      displayText = descendantCount > 99 ? '···' : String(descendantCount)
+    } else {
+      displayText = '-'
+    }
+    
     const text = new Text({
       x: 0,
       y: 0,
-      text: this._node.isFolded ? '+' : '-',
-      fontSize: 12,
+      text: displayText,
+      fontSize: isCollapsed ? 10 : 12,
+      fontWeight: isCollapsed ? 300 : 400,
       fill: '#999999',
       textAlign: 'center',
       verticalAlign: 'middle',
@@ -271,6 +293,45 @@ export class TopicNodeView extends TitleableView {
     button.add(text)
     
     return button
+  }
+  
+  private _initLabels(): void {
+    if (this.labelsView) {
+      this.labelsView.group.remove()
+      this.labelsView = null
+    }
+    
+    if (this._shapeClass === 'matrixMain') {
+      return
+    }
+    
+    const labels = this._node.labels
+    if (labels && labels.length > 0) {
+      this.labelsView = new LabelsNodeView(this._node, labels)
+      this.labelsView.setPosition({ x: 8, y: this._size.height + 4 })
+      this.group.add(this.labelsView)
+    }
+  }
+  
+  refreshLabelViewState(): void {
+    if (this._shapeClass === 'matrixMain') {
+      if (this.labelsView) {
+        this.labelsView.group.remove()
+        this.labelsView = null
+      }
+    } else {
+      const labels = this._node.labels
+      if (labels && labels.length > 0) {
+        if (!this.labelsView) {
+          this.labelsView = new LabelsNodeView(this._node, labels)
+          this.labelsView.setPosition({ x: 8, y: this._size.height + 4 })
+          this.group.add(this.labelsView)
+        } else {
+          this.labelsView.setLabels(labels)
+        }
+      }
+    }
+    this.invalidateLayout()
   }
   
   private renderMarkers(): void {
@@ -432,6 +493,11 @@ export class TopicNodeView extends TitleableView {
       view.group.remove()
     }
     this.markerViews = []
+    
+    if (this.labelsView) {
+      this.labelsView.group.remove()
+      this.labelsView = null
+    }
     
     if (this.imageContainer) {
       this.imageContainer.remove()

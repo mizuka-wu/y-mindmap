@@ -213,6 +213,20 @@ export class RelationshipTitleNodeView extends NodeView {
     this._fontSize = size
     this.invalidateLayout()
   }
+
+  getClientRect(): { x: number; y: number; width: number; height: number } {
+    const bounds = this.getBounds()
+    
+    const globalX = bounds.x + (this.group.x || 0)
+    const globalY = bounds.y + (this.group.y || 0)
+    
+    return {
+      x: globalX,
+      y: globalY,
+      width: bounds.width,
+      height: bounds.height,
+    }
+  }
 }
 
 export default RelationshipNodeView

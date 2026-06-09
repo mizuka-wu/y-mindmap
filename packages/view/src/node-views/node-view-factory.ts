@@ -10,13 +10,14 @@ import { MarkerNodeView, MarkersNodeView } from './components/marker-node-view'
 import { ImageNodeView } from './components/image-node-view'
 import { InformationNodeView } from './components/information-node-view'
 import { LabelNodeView, LabelsNodeView } from './components/label-node-view'
+import { MathJaxNodeView } from './components/mathjax-node-view'
 import { BranchNodeView } from './containers/branch-node-view'
 import { BoundaryNodeView } from './containers/boundary-node-view'
 import { SelectBoxNodeView, ResizeBoxNodeView, CollapseExpandNodeView } from './interactions/interaction-node-views'
 import { RelationshipNodeView, RelationshipTitleNodeView } from './relationships/relationship-node-view'
 import { MatrixNodeView, MatrixCellNodeView, TreeTableCellNodeView } from './special/special-node-views'
 import { FishBoneHeadLineNodeView, FishBoneMainLineNodeView, TimelineMainLineNodeView } from './special/fishbone-timeline-node-views'
-import { MathJaxNodeView, PlaceholderTopicNodeView, SheetNodeView } from './advanced/advanced-node-views'
+import { PlaceholderTopicNodeView, SheetNodeView } from './advanced/advanced-node-views'
 
 export enum NodeViewType {
   TOPIC = 'topic',
@@ -256,6 +257,27 @@ export class NodeViewFactory {
     const cache = this.viewCaches.get(type)
     if (!cache) return []
     return Array.from(cache.values())
+  }
+  
+  removeViewsByNodeId(nodeId: string): void {
+    for (const [type, cache] of this.viewCaches) {
+      const keysToDelete: string[] = []
+      
+      for (const [key, view] of cache) {
+        if (key === nodeId || key.startsWith(`${nodeId}-`)) {
+          view.destroy()
+          keysToDelete.push(key)
+        }
+      }
+      
+      for (const key of keysToDelete) {
+        cache.delete(key)
+      }
+    }
+  }
+  
+  hasView(type: NodeViewType, key: string): boolean {
+    return this.viewCaches.get(type)?.has(key) ?? false
   }
 }
 

@@ -4,6 +4,7 @@ import { NodeView, Size, Bounds } from '../core/node-view'
 import type { BranchNodeView } from './containers/branch-node-view'
 import { styleManager } from '../core/style-manager'
 import { StyleKey, DEFAULT_CONNECTION_STYLE } from '@y-mindmap/core'
+import type { ArrowStyle } from '@y-mindmap/core'
 
 export interface ConnectionLayout {
   connectionId: string
@@ -20,6 +21,8 @@ export class ConnectionNodeView extends NodeView {
   private _linePattern: string = 'solid'
   private _lineTapered: boolean = false
   private _lineCorner: number = 8
+  private _startArrow: ArrowStyle | null = null
+  private _endArrow: ArrowStyle | null = null
 
   protected initialize(): void {
     this.path = new Path({
@@ -69,6 +72,61 @@ export class ConnectionNodeView extends NodeView {
     this.path.strokeWidth = this._isSelected ? 3 : lineWidth
     this.path.dashPattern = this.getDashPattern(linePattern)
     this.path.fill = lineTapered ? lineColor : 'none'
+
+    this._applyArrows(lineColor)
+  }
+
+  private _applyArrows(lineColor: string): void {
+    if (!this.path) return
+
+    const startArrow = styleManager.getStyleValue(this, StyleKey.START_ARROW) as ArrowStyle | undefined
+    const endArrow = styleManager.getStyleValue(this, StyleKey.END_ARROW) as ArrowStyle | undefined
+
+    this._startArrow = startArrow || null
+    this._endArrow = endArrow || null
+
+    if (this._startArrow && this._startArrow.type !== 'none') {
+      this.path.startArrow = this._createArrowAttr(this._startArrow, lineColor)
+    } else {
+      this.path.startArrow = undefined
+    }
+
+    if (this._endArrow && this._endArrow.type !== 'none') {
+      this.path.endArrow = this._createArrowAttr(this._endArrow, lineColor)
+    } else {
+      this.path.endArrow = undefined
+    }
+  }
+
+  private _createArrowAttr(arrowStyle: ArrowStyle, lineColor: string): any {
+    const size = arrowStyle.size || 8
+    
+    switch (arrowStyle.type) {
+      case 'arrow':
+        return {
+          type: 'path',
+          path: `M 0 0 L ${size} ${size / 2} L ${size} -${size / 2} Z`,
+          fill: lineColor,
+        }
+      case 'circle':
+        return {
+          type: 'circle',
+          radius: size / 2,
+          fill: lineColor,
+        }
+      case 'diamond':
+        return {
+          type: 'path',
+          path: `M 0 0 L ${size / 2} ${size / 2} L ${size} 0 L ${size / 2} -${size / 2} Z`,
+          fill: lineColor,
+        }
+      default:
+        return {
+          type: 'path',
+          path: `M 0 0 L ${size} ${size / 2} L ${size} -${size / 2} Z`,
+          fill: lineColor,
+        }
+    }
   }
   
   protected updateStyle(): void {

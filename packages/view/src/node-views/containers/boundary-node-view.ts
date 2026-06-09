@@ -141,6 +141,38 @@ export class BoundaryNodeView extends NodeView {
     )
     return TITLE_HIDDEN_SHAPES.includes(shapeClass)
   }
+
+  select(): void {
+    if (this._isSelected) return
+    this._isSelected = true
+    this._highlightBorder()
+    this.invalidatePaint()
+  }
+
+  deselect(): void {
+    if (!this._isSelected) return
+    this._isSelected = false
+    this._restoreBorder()
+    this.invalidatePaint()
+  }
+
+  private _highlightBorder(): void {
+    if (this.boundaryElement) {
+      if (this.boundaryElement instanceof Rect) {
+        this.boundaryElement.stroke = '#4A90D9'
+        this.boundaryElement.strokeWidth = 2
+      }
+    }
+  }
+
+  private _restoreBorder(): void {
+    if (this.boundaryElement) {
+      if (this.boundaryElement instanceof Rect) {
+        this.boundaryElement.stroke = this._lineColor
+        this.boundaryElement.strokeWidth = this._borderWidth
+      }
+    }
+  }
 }
 
 export default BoundaryNodeView

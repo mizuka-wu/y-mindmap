@@ -2,95 +2,6 @@ import { Rect, Text, Group, Path } from 'leafer-ui'
 import { NodeView, Size } from '../../core/node-view'
 import type { MindMapNode } from '@y-mindmap/state'
 
-export class MathJaxNodeView extends NodeView {
-  private _latex: string = ''
-  private _fontSize: number = 14
-  private _color: string = '#333333'
-  
-  private placeholderElement: Rect | null = null
-  private textElement: Text | null = null
-
-  constructor(node: MindMapNode, latex: string) {
-    super(node)
-    this._latex = latex
-  }
-
-  protected initialize(): void {
-    this.placeholderElement = new Rect({
-      fill: '#f8f8f8',
-      stroke: '#e0e0e0',
-      strokeWidth: 1,
-      cornerRadius: 4,
-    })
-    this.group.add(this.placeholderElement)
-
-    this.textElement = new Text({
-      text: this._latex,
-      fontSize: this._fontSize,
-      fontFamily: 'Cambria Math, STIX, serif',
-      fill: this._color,
-      textAlign: 'center',
-      verticalAlign: 'middle',
-    })
-    this.group.add(this.textElement)
-  }
-
-  protected calculatePreferredSize(): Size {
-    const textLength = this._latex.length
-    return {
-      width: Math.max(50, textLength * 10),
-      height: 30,
-    }
-  }
-
-  protected applyLayout(): void {
-    if (this.placeholderElement) {
-      this.placeholderElement.width = this._size.width
-      this.placeholderElement.height = this._size.height
-    }
-    if (this.textElement) {
-      this.textElement.width = this._size.width
-      this.textElement.height = this._size.height
-    }
-  }
-
-  protected applyPaint(): void {
-    if (this.textElement) {
-      this.textElement.fill = this._color
-      this.textElement.fontSize = this._fontSize
-    }
-  }
-
-  protected updateStyle(): void {
-    this.invalidatePaint()
-  }
-
-  getLatex(): string {
-    return this._latex
-  }
-
-  setLatex(latex: string): void {
-    if (this._latex === latex) return
-    this._latex = latex
-    if (this.textElement) {
-      this.textElement.text = latex
-    }
-    this.invalidateLayout()
-  }
-
-  setFontSize(size: number): void {
-    if (this._fontSize === size) return
-    this._fontSize = size
-    this.invalidateLayout()
-  }
-
-  setColor(color: string): void {
-    if (this._color === color) return
-    this._color = color
-    this.invalidatePaint()
-  }
-}
-
 export class PlaceholderTopicNodeView extends NodeView {
   private _text: string = 'Click to add topic'
   private _placeholderColor: string = '#999999'
@@ -285,4 +196,4 @@ export class SheetNodeView extends NodeView {
   }
 }
 
-export default MathJaxNodeView
+export default PlaceholderTopicNodeView

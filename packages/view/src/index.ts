@@ -25,6 +25,7 @@ export { MarkerNodeView, MarkersNodeView } from './node-views/components/marker-
 export { ImageNodeView } from './node-views/components/image-node-view'
 export { InformationNodeView } from './node-views/components/information-node-view'
 export { LabelNodeView, LabelsNodeView } from './node-views/components/label-node-view'
+export { MathJaxNodeView } from './node-views/components/mathjax-node-view'
 
 export { BranchNodeView } from './node-views/containers/branch-node-view'
 export type { ChildType } from './node-views/containers/branch-node-view'
@@ -38,4 +39,4 @@ export { RelationshipNodeView, RelationshipTitleNodeView } from './node-views/re
 export { MatrixNodeView, MatrixCellNodeView, TreeTableCellNodeView } from './node-views/special/special-node-views'
 export { FishBoneHeadLineNodeView, FishBoneMainLineNodeView, TimelineMainLineNodeView } from './node-views/special/fishbone-timeline-node-views'
 
-export { MathJaxNodeView, PlaceholderTopicNodeView, SheetNodeView } from './node-views/advanced/advanced-node-views'
+export { PlaceholderTopicNodeView, SheetNodeView } from './node-views/advanced/advanced-node-views'
