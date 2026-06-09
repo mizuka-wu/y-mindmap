@@ -1584,8 +1584,31 @@ export class EditorView {
 
   // ── Export ──
 
+  getContainer(): HTMLElement {
+    return this.container
+  }
+
   getCanvas(): HTMLCanvasElement {
     return this.app.canvas as unknown as HTMLCanvasElement
+  }
+
+  getContentBounds(): Bounds {
+    const allBounds: Bounds[] = []
+    this.state.doc.root.descendants((node) => {
+      const bounds = this.getNodeBounds(node.id)
+      if (bounds) allBounds.push(bounds)
+    })
+
+    if (allBounds.length === 0) {
+      return { x: 0, y: 0, width: 800, height: 600 }
+    }
+
+    const minX = Math.min(...allBounds.map(b => b.x))
+    const minY = Math.min(...allBounds.map(b => b.y))
+    const maxX = Math.max(...allBounds.map(b => b.x + b.width))
+    const maxY = Math.max(...allBounds.map(b => b.y + b.height))
+
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
   }
 
   // ── Lifecycle ──

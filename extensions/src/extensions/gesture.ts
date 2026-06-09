@@ -19,8 +19,8 @@ export const Gesture = createExtension<GestureOptions>({
   setup(ctx, options) {
     if (!ctx.view) return
 
-    const view = ctx.view as any
-    const container: HTMLElement = view.container
+    
+    const container = ctx.view!.getContainer()
     if (!container) return
 
     const recognizer = new GestureRecognizer((event) => {
