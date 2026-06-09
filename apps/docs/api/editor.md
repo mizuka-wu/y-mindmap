@@ -25,7 +25,7 @@ new MindMapEditor(options: MindMapEditorOptions)
 | enableGestures | boolean | true | 启用手势 |
 | ydoc | Y.Doc | - | Yjs 文档（协作模式） |
 | user | CollaboratorUser | - | 协作用户信息 |
-| plugins | Plugin[] | - | 插件列表 |
+| extensions | ExtensionDefinition[] | - | 扩展列表 |
 
 ## 方法
 
@@ -81,13 +81,10 @@ canEditTitle(nodeId: string): boolean
 canDrag(nodeId: string): boolean
 ```
 
-### 插件操作
+### 扩展操作
 
 ```typescript
-use(plugin: Plugin): void
-unuse(pluginId: string): void
-getPluginManager(): PluginManager
-emitPluginEvent(event: PluginEvent, ...args: any[]): void
+getExtensions(): ExtensionManager
 ```
 
 ### 生命周期
@@ -98,17 +95,27 @@ destroy(): void
 
 ## 事件
 
-通过插件系统监听事件：
+通过扩展系统监听事件：
 
 ```typescript
-editor.use({
-  id: 'event-listener',
-  name: 'Event Listener',
-  version: '1.0.0',
-  init(api) {
-    api.on('node:select', (nodeId) => {
-      console.log('Node selected:', nodeId)
+import { createExtension } from '@y-mindmap/extension'
+
+const EventListener = createExtension({
+  name: 'event-listener',
+  type: 'behavior',
+  defaultOptions: { enabled: true },
+  setup(ctx) {
+    ctx.on('node:select', (nodeIds) => {
+      console.log('Nodes selected:', nodeIds)
+    })
+    
+    ctx.on('document:change', (tr) => {
+      console.log('Document changed:', tr)
     })
   },
+})
+
+const editor = createMindMap(container, {
+  extensions: [EventListener],
 })
 ```

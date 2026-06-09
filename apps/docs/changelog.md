@@ -1,5 +1,22 @@
 # 更新日志
 
+## v0.2.0 (2024-06-09)
+
+### 新增
+
+- **Extension 系统**
+  - 全新的扩展系统，取代旧的 Plugin 系统
+  - `createExtension()` 工厂函数
+  - 不可变的 `configure()` 配置方法
+  - 类型安全的选项系统
+  - 17 个内置扩展
+  - StarterKit 和 PureStarterKit
+
+### 变更
+
+- 移除旧的 Plugin 系统
+- `MindMapEditorOptions.plugins` 改为 `extensions`
+
 ## v0.1.0 (2024-06-08)
 
 ### 新增
