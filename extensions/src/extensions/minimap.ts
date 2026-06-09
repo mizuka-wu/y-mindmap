@@ -1,10 +1,15 @@
 import { createExtension } from '@y-mindmap/extension'
+import { Minimap, type MinimapConfig } from '@y-mindmap/view'
 
 export interface MinimapOptions {
-  position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
   width?: number
   height?: number
-  autoHide?: boolean
+  backgroundColor?: string
+  nodeColor?: string
+  selectedNodeColor?: string
+  viewportBorderColor?: string
+  viewportFillColor?: string
+  padding?: number
 }
 
 export const Minimap = createExtension<MinimapOptions>({
@@ -12,20 +17,32 @@ export const Minimap = createExtension<MinimapOptions>({
   type: 'behavior',
 
   defaultOptions: {
-    position: 'bottom-right',
     width: 200,
     height: 150,
-    autoHide: true,
     enabled: true,
   },
 
   setup(ctx, options) {
-    // TODO: Minimap 需要额外实现，当前 EditorView 已有 Minimap 支持
-    // 但通过 options 配置而非扩展方式，后续可通过 view._createMiniMap 对接
     if (!ctx.view) return
 
+    const dom = ctx.view.getDom()
+    const container = document.createElement('div')
+    container.style.cssText = 'position:absolute;bottom:12px;right:12px;z-index:10;'
+    dom.appendChild(container)
+
+    const minimap = new Minimap(container, {
+      getDocument: () => ctx.state?.doc.root ?? null,
+      getNodeBounds: (nodeId) => ctx.view!.getNodeBounds(nodeId),
+      getSelectedNodeIds: () => ctx.state?.selection.all ?? [],
+      getViewportBounds: () => ctx.view!.getViewportBounds(),
+      getZoom: () => ctx.view!.getZoom(),
+      panTo: (x, y) => ctx.view!.panTo({ x, y }),
+      zoomTo: (level) => ctx.view!.zoomTo(level),
+    }, options as MinimapConfig)
+
     return () => {
-      // TODO: 清理 minimap DOM
+      minimap.destroy()
+      container.remove()
     }
   },
 })

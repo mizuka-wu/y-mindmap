@@ -21,6 +21,7 @@
     "@y-mindmap/interaction": "workspace:*",
     "@y-mindmap/formats": "workspace:*",
     "yjs": "^13.6.0",
-    "@y-mindmap/extension": "workspace:*"
+    "@y-mindmap/extension": "workspace:*",
+    "@y-mindmap/view": "workspace:*"
   }
 }

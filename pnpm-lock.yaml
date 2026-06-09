@@ -147,6 +147,9 @@ importers:
       '@y-mindmap/interaction':
         specifier: workspace:*
         version: link:../packages/interaction
+      '@y-mindmap/view':
+        specifier: workspace:*
+        version: link:../packages/view
       yjs:
         specifier: ^13.6.0
         version: 13.6.31

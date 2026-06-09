@@ -1,9 +1,12 @@
 import { createExtension } from '@y-mindmap/extension'
+import { ZoomControls, type ZoomControlsConfig } from '@y-mindmap/view'
 
 export interface ZoomControlsOptions {
-  position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'
-  showFitButton?: boolean
   showPercentage?: boolean
+  showFit?: boolean
+  minZoom?: number
+  maxZoom?: number
+  zoomStep?: number
 }
 
 export const ZoomControls = createExtension<ZoomControlsOptions>({
@@ -11,19 +14,30 @@ export const ZoomControls = createExtension<ZoomControlsOptions>({
   type: 'behavior',
 
   defaultOptions: {
-    position: 'bottom-right',
-    showFitButton: true,
     showPercentage: true,
+    showFit: true,
     enabled: true,
   },
 
   setup(ctx, options) {
-    // TODO: ZoomControls 需要额外实现，当前 EditorView 已有 ZoomControls 支持
-    // 但通过 options 配置而非扩展方式，后续可通过 view._createZoomControls 对接
     if (!ctx.view) return
 
+    const dom = ctx.view.getDom()
+    const container = document.createElement('div')
+    container.style.cssText = 'position:absolute;bottom:12px;right:12px;z-index:10;'
+    dom.appendChild(container)
+
+    const zoomControls = new ZoomControls(container, {
+      getZoom: () => ctx.view!.getZoom(),
+      zoomTo: (level) => ctx.view!.zoomTo(level),
+      zoomIn: () => ctx.view!.zoomIn(),
+      zoomOut: () => ctx.view!.zoomOut(),
+      fitToContent: () => ctx.view!.fitToContent(),
+    }, options as ZoomControlsConfig)
+
     return () => {
-      // TODO: 清理 zoom 控件 DOM
+      zoomControls.destroy()
+      container.remove()
     }
   },
 })

@@ -14,6 +14,10 @@ import {
   Keymap,
   type KeymapOptions,
   Clipboard,
+  Minimap,
+  type MinimapOptions,
+  ZoomControls,
+  type ZoomControlsOptions,
   ExportXMind,
   ExportMarkdown,
   ExportJSON,
@@ -32,6 +36,8 @@ export interface StarterKitOptions {
   gesture?: Partial<GestureOptions> | false
   keymap?: Partial<KeymapOptions> | false
   clipboard?: false
+  minimap?: Partial<MinimapOptions> | false
+  zoomControls?: Partial<ZoomControlsOptions> | false
   exportXMind?: false
   exportMarkdown?: false
   exportJSON?: false
@@ -97,6 +103,22 @@ export function StarterKit(options?: StarterKitOptions): ExtensionDefinition[] {
 
   if (options?.clipboard !== false) {
     extensions.push(Clipboard)
+  }
+
+  if (options?.minimap !== false) {
+    extensions.push(
+      options?.minimap
+        ? Minimap.configure(options.minimap)
+        : Minimap
+    )
+  }
+
+  if (options?.zoomControls !== false) {
+    extensions.push(
+      options?.zoomControls
+        ? ZoomControls.configure(options.zoomControls)
+        : ZoomControls
+    )
   }
 
   if (options?.exportXMind !== false) {
