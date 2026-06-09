@@ -2,17 +2,17 @@ import { NodeView, Size, Bounds } from '../../core/node-view'
 import type { MindMapNode } from '@y-mindmap/state'
 import type { TopicNodeView } from '../topic-node-view'
 import { styleManager } from '../../core/style-manager'
-import { StyleKey, DEFAULT_CONNECTION_STYLE } from '@y-mindmap/core'
+import { StyleKey, DEFAULT_CONNECTION_STYLE, TopicType } from '@y-mindmap/core'
 import { BoundaryNodeView } from './boundary-node-view'
 import { SummaryNodeView } from './summary-node-view'
 import { ConnectionNodeView } from '../connection-node-view'
-import { TopicType } from '@y-mindmap/core'
 
 export type ChildType = 'attached' | 'detached' | 'summary' | 'callout'
 
 export class BranchNodeView extends NodeView {
   private _structureClass: string = 'map'
   private _isCollapsed: boolean = false
+  private _isCentralBranch: boolean = false
   private _direction: 'right' | 'left' | 'both' = 'both'
   private _topicView: TopicNodeView | null = null
 
@@ -173,6 +173,14 @@ export class BranchNodeView extends NodeView {
     this.invalidateLayout()
   }
 
+  isCentralBranch(): boolean {
+    return this._isCentralBranch
+  }
+
+  setCentralBranch(isCentral: boolean): void {
+    this._isCentralBranch = isCentral
+  }
+
   private _updateChildrenVisibility(): void {
     const allChildren = this.getAllChildren()
     for (const child of allChildren) {
@@ -185,10 +193,47 @@ export class BranchNodeView extends NodeView {
 
   shouldHide(): boolean {
     const parent = this.getParent()
-    if (!parent) return false
+    if (!parent) return true
+
+    if (this.isCentralBranch()) return false
+
     if (!(parent instanceof BranchNodeView)) return false
-    if (parent.isCollapsed()) return true
+
+    if (this.isCalloutBranch() && this.isInMatrix()) return true
+
+    if ((this.isSummaryBranch() || this.isCalloutBranch()) &&
+        parent.isTreeTableCell()) {
+      return true
+    }
+
+    if (this.isSummaryBranch() && parent.isFishBoneHead()) return true
+
+    if (parent.isCollapsed() && !this.isCalloutBranch()) return true
+
     return parent.shouldHide()
+  }
+
+  private isCalloutBranch(): boolean {
+    return this._node.type === TopicType.CALLOUT
+  }
+
+  private isSummaryBranch(): boolean {
+    return this._node.type === TopicType.SUMMARY
+  }
+
+  private isTreeTableCell(): boolean {
+    return this._structureClass === 'org.xmind.ui.treetable'
+  }
+
+  private isFishBoneHead(): boolean {
+    return this._structureClass.includes('fishbone')
+  }
+
+  private isInMatrix(): boolean {
+    const parent = this.getParent()
+    if (!(parent instanceof BranchNodeView)) return false
+    return parent._structureClass === 'org.xmind.ui.spreadsheet' ||
+           parent._structureClass === 'org.xmind.ui.columnspreadsheet'
   }
 
   getDirection(): 'right' | 'left' | 'both' {

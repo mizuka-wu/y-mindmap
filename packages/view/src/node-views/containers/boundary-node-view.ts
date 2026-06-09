@@ -1,6 +1,10 @@
 import { Path, Rect } from 'leafer-ui'
 import { NodeView, Size, Bounds } from '../../core/node-view'
 import type { MindMapNode } from '@y-mindmap/state'
+import { styleManager } from '../../core/style-manager'
+import { StyleKey } from '@y-mindmap/core'
+
+const TITLE_HIDDEN_SHAPES = ['polygon', 'roundedPolygon', 'newBoundary1']
 
 export class BoundaryNodeView extends NodeView {
   private _lineColor: string = '#999999'
@@ -127,6 +131,15 @@ export class BoundaryNodeView extends NodeView {
       this.boundaryElement.path = path
     }
     this.invalidatePaint()
+  }
+
+  shouldPreventTitle(): boolean {
+    const shapeClass = styleManager.getStyleValueOrDefault(
+      this,
+      StyleKey.SHAPE_CLASS,
+      this._shapeClass
+    )
+    return TITLE_HIDDEN_SHAPES.includes(shapeClass)
   }
 }
 

@@ -1,5 +1,6 @@
 export { NodeView, DirtyFlag } from './core/node-view'
 export type { Bounds, Size, Position } from './core/node-view'
+export { TitleableView } from './core/titleable-view'
 
 export { StyleManager, styleManager } from './core/style-manager'
 export { StyleKey } from '@y-mindmap/core'

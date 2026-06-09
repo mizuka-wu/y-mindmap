@@ -2,6 +2,8 @@ import { Path, Group } from 'leafer-ui'
 import type { MindMapNode } from '@y-mindmap/state'
 import { NodeView, Size, Bounds } from '../core/node-view'
 import type { BranchNodeView } from './containers/branch-node-view'
+import { styleManager } from '../core/style-manager'
+import { StyleKey, DEFAULT_CONNECTION_STYLE } from '@y-mindmap/core'
 
 export interface ConnectionLayout {
   connectionId: string
@@ -17,6 +19,7 @@ export class ConnectionNodeView extends NodeView {
   private _lineClass: string = 'curve'
   private _linePattern: string = 'solid'
   private _lineTapered: boolean = false
+  private _lineCorner: number = 8
 
   protected initialize(): void {
     this.path = new Path({
@@ -47,9 +50,15 @@ export class ConnectionNodeView extends NodeView {
     const lineClass = parent && typeof parent.getLineClass === 'function' ? parent.getLineClass() : 'curve'
     const linePattern = parent && typeof parent.getLinePattern === 'function' ? parent.getLinePattern() : 'solid'
     const lineTapered = parent && typeof parent.isLineTapered === 'function' ? parent.isLineTapered() : false
+    const lineCorner = styleManager.getStyleValueOrDefault(
+      parent || this,
+      StyleKey.LINE_CORNER,
+      DEFAULT_CONNECTION_STYLE.lineCorner ?? 8
+    )
 
-    if (lineClass !== this._lineClass) {
+    if (lineClass !== this._lineClass || lineCorner !== this._lineCorner) {
       this._lineClass = lineClass
+      this._lineCorner = lineCorner
       this.path.path = this.getStyledPath(lineClass)
     }
 
@@ -110,7 +119,7 @@ export class ConnectionNodeView extends NodeView {
   private computeRoundedElbowPath(start: { x: number; y: number }, end: { x: number; y: number }): string {
     const dx = end.x - start.x
     const dy = end.y - start.y
-    const radius = Math.max(8, Math.min(24, Math.abs(dx) * 0.2, Math.abs(dy) * 0.25))
+    const radius = Math.max(this._lineCorner, Math.min(24, Math.abs(dx) * 0.2, Math.abs(dy) * 0.25))
 
     if (Math.abs(dx) < 2 || Math.abs(dy) < 2) {
       return `M ${start.x} ${start.y} L ${end.x} ${end.y}`

@@ -1,6 +1,7 @@
 import { Path, Rect } from 'leafer-ui'
 import { NodeView, Size, Bounds } from '../../core/node-view'
 import type { MindMapNode } from '@y-mindmap/state'
+import { BranchNodeView } from './branch-node-view'
 
 /**
  * SummaryNodeView - 视图 for summary annotations.
@@ -17,13 +18,13 @@ export class SummaryNodeView extends NodeView {
   
   private summaryElement: Path | Rect | null = null
 
-  /** 关联的 summary topic node id */
   private _topicId: string
+  private _range: { start: number; end: number } = { start: -1, end: -1 }
 
   constructor(node: MindMapNode) {
     super(node)
-    // summary data 中的 topicId 指向关联的 summary topic
     this._topicId = (node as any).topicId || node.id
+    this._range = (node as any).range || { start: -1, end: -1 }
   }
 
   protected initialize(): void {
@@ -117,6 +118,23 @@ export class SummaryNodeView extends NodeView {
 
   setSummaryShapeSize(size: Size): void {
     this.setSize(size)
+  }
+
+  getRange(): { start: number; end: number } {
+    return { ...this._range }
+  }
+
+  setRange(range: { start: number; end: number }): void {
+    if (this._range.start === range.start && this._range.end === range.end) return
+    this._range = { ...range }
+    this.onRangeChange()
+  }
+
+  protected onRangeChange(): void {
+    const parent = this.getParent()
+    if (parent instanceof BranchNodeView) {
+      parent.invalidateLayout()
+    }
   }
 }
 

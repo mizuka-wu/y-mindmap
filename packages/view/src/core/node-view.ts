@@ -52,6 +52,7 @@ export abstract class NodeView {
   protected _forbidInvalidatePaint: boolean = false
   
   protected _isVisible: boolean = true
+  protected _isForcedInvisible: boolean = false
   protected _opacity: number = 1
   protected _isDisposed: boolean = false
   protected _isSelected: boolean = false
@@ -228,12 +229,22 @@ export abstract class NodeView {
   isVisible(): boolean {
     return this._isVisible
   }
-  
+
+  isForcedInvisible(): boolean {
+    return this._isForcedInvisible
+  }
+
+  setForcedInvisible(forcedInvisible: boolean): void {
+    if (this._isForcedInvisible === forcedInvisible) return
+    this._isForcedInvisible = forcedInvisible
+    this.setVisible(this._isVisible)
+  }
+
   setVisible(visible: boolean): void {
     if (this._isVisible === visible) return
     
     this._isVisible = visible
-    this.group.visible = visible
+    this.group.visible = visible && !this._isForcedInvisible
     this.invalidatePaint()
   }
   

@@ -29,6 +29,8 @@ export enum StyleKey {
   LINE_TAPERED = 'line-tapered',
   START_ARROW = 'start-arrow',
   END_ARROW = 'end-arrow',
+  BORDER_LINE_PATTERN = 'border-line-pattern',
+  LINE_CORNER = 'line-corner',
   SHADOW_COLOR = 'shadow-color',
   SHADOW_BLUR = 'shadow-blur',
   SHADOW_OFFSET_X = 'shadow-offset-x',
@@ -83,6 +85,7 @@ export interface ConnectionStyle {
   lineWidth?: number
   lineStyle?: 'solid' | 'dashed' | 'dotted'
   lineOpacity?: number
+  lineCorner?: number
   tapered?: boolean
   startArrow?: ArrowStyle
   endArrow?: ArrowStyle

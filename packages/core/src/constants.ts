@@ -34,6 +34,7 @@ export const DEFAULT_CONNECTION_STYLE: ConnectionStyle = {
   lineWidth: 2,
   lineStyle: 'solid',
   lineOpacity: 1,
+  lineCorner: 8,
   tapered: false,
 }
 

@@ -2,14 +2,16 @@ import { Group, Rect, Ellipse, Path, Text } from 'leafer-ui'
 import type { MindMapNode } from '@y-mindmap/state'
 import { StyleKey, DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
 import type { StyleData, MarkerData, GradientData, PatternData } from '@y-mindmap/core'
-import { NodeView, Size, Bounds } from '../core/node-view'
+import { TitleableView } from '../core/titleable-view'
+import type { Size, Bounds } from '../core/node-view'
+import { NodeView } from '../core/node-view'
 import { styleManager } from '../core/style-manager'
 import { ShapeFactory } from '../shapes/shape-factory'
 import { createWrappedText } from '../utils/text-utils'
 import type { BranchNodeView } from './containers/branch-node-view'
 import { MarkerNodeView, MarkersNodeView } from './components/marker-node-view'
 
-export class TopicNodeView extends NodeView {
+export class TopicNodeView extends TitleableView {
   private shape: Rect | Ellipse | Path | null = null
   private titleText: Text | Group | null = null
   private expandButton: Group | null = null
@@ -39,6 +41,10 @@ export class TopicNodeView extends NodeView {
     if (this._node.image) {
       this.renderImage()
     }
+  }
+
+  protected getStyledNode(): NodeView {
+    return this._owningBranch || this
   }
 
   setOwningBranch(branch: BranchNodeView | null): void {
@@ -110,10 +116,10 @@ export class TopicNodeView extends NodeView {
   protected applyPaint(): void {
     if (!this.shape) return
     
-    // Read styles from parent BranchNodeView via StyleManager (Snowbrush behavior)
     const fillColor = styleManager.getStyleValueOrDefault(this, StyleKey.FILL_COLOR, DEFAULT_TOPIC_STYLE.fillColor)
     const borderColor = styleManager.getStyleValueOrDefault(this, StyleKey.BORDER_COLOR, DEFAULT_TOPIC_STYLE.borderColor)
     const borderWidth = styleManager.getStyleValueOrDefault(this, StyleKey.BORDER_WIDTH, DEFAULT_TOPIC_STYLE.borderWidth)
+    const borderLinePattern = styleManager.getStyleValue(this, StyleKey.BORDER_PATTERN) as string | undefined
     const fillPattern = styleManager.getStyleValue(this, StyleKey.FILL_PATTERN) as PatternData | undefined
     const fillGradient = styleManager.getStyleValue(this, StyleKey.FILL_GRADIENT) as GradientData | undefined
     const visualFillColor = styleManager.computeVisualFillColor(this)
@@ -133,12 +139,36 @@ export class TopicNodeView extends NodeView {
       
       this.shape.stroke = borderColor
       this.shape.strokeWidth = borderWidth
+      this.shape.dashPattern = this.getDashPattern(borderLinePattern)
     }
     
     if (this._isSelected) {
       this.showSelectBox()
     } else {
       this.hideSelectBox()
+    }
+
+    this.refreshMarkerSizes()
+  }
+
+  private getDashPattern(pattern?: string): number[] {
+    switch (pattern) {
+      case 'dashed':
+        return [6, 4]
+      case 'dotted':
+        return [2, 3]
+      case 'dash-dot':
+        return [6, 2, 2, 2]
+      default:
+        return []
+    }
+  }
+
+  private refreshMarkerSizes(): void {
+    for (const view of this.markerViews) {
+      if (view instanceof MarkersNodeView) {
+        view.invalidateLayout()
+      }
     }
   }
   
@@ -324,6 +354,50 @@ export class TopicNodeView extends NodeView {
     const height = tempText.height || fontSize * 1.2
     
     return { width, height }
+  }
+
+  protected _applyTextColor(color: string): void {
+    if (this.titleText) {
+      if (this.titleText instanceof Text) {
+        this.titleText.fill = color
+      }
+    }
+  }
+
+  protected _applyTextDecoration(decoration: string): void {
+    if (this.titleText instanceof Text) {
+      this.titleText.textDecoration = decoration as any
+    }
+  }
+
+  protected _applyTextAlign(align: string): void {
+    if (this.titleText instanceof Text) {
+      this.titleText.textAlign = align as any
+    }
+  }
+
+  protected _applyFontSize(size: number): void {
+    if (this.titleText instanceof Text) {
+      this.titleText.fontSize = size
+    }
+  }
+
+  protected _applyFontFamily(family: string): void {
+    if (this.titleText instanceof Text) {
+      this.titleText.fontFamily = family
+    }
+  }
+
+  protected _applyFontStyle(style: string): void {
+    if (this.titleText instanceof Text) {
+      this.titleText.italic = style === 'italic'
+    }
+  }
+
+  protected _applyFontWeight(weight: string | number): void {
+    if (this.titleText instanceof Text) {
+      this.titleText.fontWeight = weight as any
+    }
   }
   
   private getShapePadding(): { top: number; right: number; bottom: number; left: number } {
