@@ -253,6 +253,9 @@ importers:
       '@y-mindmap/core':
         specifier: workspace:*
         version: link:../core
+      '@y-mindmap/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@y-mindmap/formats':
         specifier: workspace:*
         version: link:../formats
@@ -521,6 +524,43 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
+  startkits/pure:
+    dependencies:
+      '@y-mindmap/commands':
+        specifier: workspace:*
+        version: link:../../packages/commands
+      '@y-mindmap/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@y-mindmap/editor':
+        specifier: workspace:*
+        version: link:../../packages/editor
+      '@y-mindmap/extension':
+        specifier: workspace:*
+        version: link:../../packages/extension
+      '@y-mindmap/interaction':
+        specifier: workspace:*
+        version: link:../../packages/interaction
+      '@y-mindmap/layout':
+        specifier: workspace:*
+        version: link:../../packages/layout
+      '@y-mindmap/state':
+        specifier: workspace:*
+        version: link:../../packages/state
+      '@y-mindmap/view':
+        specifier: workspace:*
+        version: link:../../packages/view
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../../configs/eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../../configs/typescript-config
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+
   startkits/vanilla:
     dependencies:
       '@y-mindmap/commands':
@@ -532,6 +572,12 @@ importers:
       '@y-mindmap/editor':
         specifier: workspace:*
         version: link:../../packages/editor
+      '@y-mindmap/extension':
+        specifier: workspace:*
+        version: link:../../packages/extension
+      '@y-mindmap/extensions':
+        specifier: workspace:*
+        version: link:../../extensions
       '@y-mindmap/interaction':
         specifier: workspace:*
         version: link:../../packages/interaction

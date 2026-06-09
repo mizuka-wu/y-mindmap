@@ -1,5 +1,5 @@
 {
-  "name": "@y-mindmap/vanilla",
+  "name": "@y-mindmap/pure",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,7 +9,6 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
@@ -25,7 +24,6 @@
     "@y-mindmap/layout": "workspace:*",
     "@y-mindmap/commands": "workspace:*",
     "@y-mindmap/editor": "workspace:*",
-    "@y-mindmap/extension": "workspace:*",
-    "@y-mindmap/extensions": "workspace:*"
+    "@y-mindmap/extension": "workspace:*"
   }
 }

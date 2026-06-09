@@ -1,8 +1,6 @@
 export { createExtension } from '@y-mindmap/extension'
 export type { ExtensionDefinition, ExtensionContext, ExtensionOptions } from '@y-mindmap/extension'
 
-export { StarterKit } from './starter-kit'
-export type { StarterKitOptions } from './starter-kit'
 
 export { Collab } from './extensions/collab'
 export type { CollabOptions } from './extensions/collab'
