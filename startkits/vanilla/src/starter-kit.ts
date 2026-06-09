@@ -1,14 +1,43 @@
 import { ExtensionDefinition } from '@y-mindmap/extension'
-import { ContextMenu, type ContextMenuOptions } from './extensions/context-menu'
-import { DragDrop, type DragDropOptions } from './extensions/drag-drop'
-import { BoxSelect } from './extensions/box-select'
-import { RichTextEdit, type RichTextEditOptions } from './extensions/rich-text-edit'
+import {
+  ContextMenu,
+  type ContextMenuOptions,
+  DragDrop,
+  type DragDropOptions,
+  BoxSelect,
+  RichTextEdit,
+  type RichTextEditOptions,
+  InertialScroll,
+  type InertialScrollOptions,
+  Gesture,
+  type GestureOptions,
+  Keymap,
+  type KeymapOptions,
+  Clipboard,
+  ExportXMind,
+  ExportMarkdown,
+  ExportJSON,
+  ExportPNG,
+  type ExportPNGOptions,
+  ExportSVG,
+  ExportPDF,
+} from '@y-mindmap/extensions'
 
 export interface StarterKitOptions {
   contextMenu?: Partial<ContextMenuOptions> | false
   dragDrop?: Partial<DragDropOptions> | false
   boxSelect?: false
   richTextEdit?: Partial<RichTextEditOptions> | false
+  inertialScroll?: Partial<InertialScrollOptions> | false
+  gesture?: Partial<GestureOptions> | false
+  keymap?: Partial<KeymapOptions> | false
+  clipboard?: false
+  exportXMind?: false
+  exportMarkdown?: false
+  exportJSON?: false
+  exportPNG?: Partial<ExportPNGOptions> | false
+  exportSVG?: false
+  exportPDF?: false
 }
 
 export function StarterKit(options?: StarterKitOptions): ExtensionDefinition[] {
@@ -40,6 +69,62 @@ export function StarterKit(options?: StarterKitOptions): ExtensionDefinition[] {
         ? RichTextEdit.configure(options.richTextEdit)
         : RichTextEdit
     )
+  }
+
+  if (options?.inertialScroll !== false) {
+    extensions.push(
+      options?.inertialScroll
+        ? InertialScroll.configure(options.inertialScroll)
+        : InertialScroll
+    )
+  }
+
+  if (options?.gesture !== false) {
+    extensions.push(
+      options?.gesture
+        ? Gesture.configure(options.gesture)
+        : Gesture
+    )
+  }
+
+  if (options?.keymap !== false) {
+    extensions.push(
+      options?.keymap
+        ? Keymap.configure(options.keymap)
+        : Keymap
+    )
+  }
+
+  if (options?.clipboard !== false) {
+    extensions.push(Clipboard)
+  }
+
+  if (options?.exportXMind !== false) {
+    extensions.push(ExportXMind)
+  }
+
+  if (options?.exportMarkdown !== false) {
+    extensions.push(ExportMarkdown)
+  }
+
+  if (options?.exportJSON !== false) {
+    extensions.push(ExportJSON)
+  }
+
+  if (options?.exportPNG !== false) {
+    extensions.push(
+      options?.exportPNG
+        ? ExportPNG.configure(options.exportPNG)
+        : ExportPNG
+    )
+  }
+
+  if (options?.exportSVG !== false) {
+    extensions.push(ExportSVG)
+  }
+
+  if (options?.exportPDF !== false) {
+    extensions.push(ExportPDF)
   }
 
   return extensions
