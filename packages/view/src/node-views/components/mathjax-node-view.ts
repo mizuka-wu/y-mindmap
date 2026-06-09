@@ -1,8 +1,9 @@
-import { Rect, Text, Group } from 'leafer-ui'
+import { Rect, Text, Group, Image as LeaferImage } from 'leafer-ui'
 import { NodeView, Size } from '../../core/node-view'
 import type { MindMapNode } from '@y-mindmap/state'
 import { styleManager } from '../../core/style-manager'
 import { StyleKey } from '@y-mindmap/core'
+import { renderFormula, type MathJaxRenderResult } from '../../utils/mathjax-renderer'
 
 export class MathJaxNodeView extends NodeView {
   private _formula: string = ''
@@ -14,6 +15,9 @@ export class MathJaxNodeView extends NodeView {
 
   private placeholderElement: Rect | null = null
   private textElement: Text | null = null
+  private imageElement: LeaferImage | null = null
+  private _renderedSize: Size = { width: 0, height: 0 }
+  private _isRendering: boolean = false
 
   constructor(node: MindMapNode, formula: string) {
     super(node)
@@ -40,9 +44,59 @@ export class MathJaxNodeView extends NodeView {
     this.group.add(this.textElement)
 
     this._refreshInheritedColor()
+    this._renderFormulaAsync()
+  }
+
+  private async _renderFormulaAsync(): Promise<void> {
+    if (this._isRendering || !this._formula) return
+
+    this._isRendering = true
+    try {
+      const result = await renderFormula(this._formula, {
+        fontSize: this._fontSize,
+        color: this._color,
+        display: true,
+      })
+
+      this._renderedSize = {
+        width: result.width,
+        height: result.height,
+      }
+
+      this._applyRenderedFormula(result)
+    } catch (error) {
+      console.error('Failed to render MathJax formula:', error)
+    } finally {
+      this._isRendering = false
+    }
+  }
+
+  private _applyRenderedFormula(result: MathJaxRenderResult): void {
+    if (this.textElement) {
+      this.textElement.visible = false
+    }
+
+    if (this.imageElement) {
+      this.imageElement.url = result.dataUri
+      this.imageElement.width = result.width
+      this.imageElement.height = result.height
+    } else {
+      this.imageElement = new LeaferImage({
+        url: result.dataUri,
+        width: result.width,
+        height: result.height,
+      })
+      this.group.add(this.imageElement)
+    }
+
+    this.invalidateLayout()
   }
 
   protected calculatePreferredSize(): Size {
+    if (this._renderedSize.width > 0 && this._renderedSize.height > 0) {
+      return this._renderedSize
+    }
+
     const textLength = this._formula.length
     const autoWidth = Math.max(50, textLength * 10)
     
@@ -61,6 +115,10 @@ export class MathJaxNodeView extends NodeView {
       this.textElement.width = this._size.width
       this.textElement.height = this._size.height
       this.textElement.textAlign = this._align
+    }
+    if (this.imageElement) {
+      this.imageElement.width = this._size.width
+      this.imageElement.height = this._size.height
     }
   }
 
@@ -99,8 +157,14 @@ export class MathJaxNodeView extends NodeView {
     this._formula = formula
     if (this.textElement) {
       this.textElement.text = formula
+      this.textElement.visible = true
     }
+    if (this.imageElement) {
+      this.imageElement.visible = false
+    }
+    this._renderedSize = { width: 0, height: 0 }
     this.invalidateLayout()
+    this._renderFormulaAsync()
   }
 
   setWidth(width: number): void {
@@ -127,6 +191,7 @@ export class MathJaxNodeView extends NodeView {
     if (this._fontSize === size) return
     this._fontSize = size
     this.invalidateLayout()
+    this._renderFormulaAsync()
   }
 
   getFontSize(): number {
@@ -137,6 +202,7 @@ export class MathJaxNodeView extends NodeView {
     if (this._color === color) return
     this._color = color
     this.invalidatePaint()
+    this._renderFormulaAsync()
   }
 
   getColor(): string {

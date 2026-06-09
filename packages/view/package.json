@@ -21,6 +21,7 @@
     "@y-mindmap/core": "workspace:*",
     "@y-mindmap/state": "workspace:*",
     "@y-mindmap/layout": "workspace:*",
-    "leafer-ui": "^2.1.4"
+    "leafer-ui": "^2.1.4",
+    "mathjax-full": "^3.2.2"
   }
 }
