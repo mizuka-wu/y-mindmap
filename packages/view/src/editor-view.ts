@@ -1,4 +1,4 @@
-import { App, Leafer, Group } from 'leafer-ui'
+import { App, Leafer, Group, Rect } from 'leafer-ui'
 import { EditorState, MindMapDocument, MindMapNode, Transaction, Selection } from '@y-mindmap/state'
 import type { RelationshipData } from '@y-mindmap/state'
 import type { ConnectionLayout } from '@y-mindmap/layout'
@@ -65,6 +65,16 @@ export class EditorView {
   private _dragStartPosition: Point | null = null
   private _pointerMoveHandler: ((e: PointerEvent) => void) | null = null
   private _pointerUpHandler: ((e: PointerEvent) => void) | null = null
+  
+  // Context menu
+  private _contextMenu: HTMLElement | null = null
+  private _contextMenuClickHandler: ((e: MouseEvent) => void) | null = null
+  private _contextMenuKeyHandler: ((e: KeyboardEvent) => void) | null = null
+  
+  // Multi-select & box selection
+  private _boxSelectStartPoint: Point | null = null
+  private _boxSelectRect: Rect | null = null
+  private _isBoxSelecting: boolean = false
   
   constructor(config: EditorViewConfig) {
     this.container = config.container
@@ -543,6 +553,7 @@ export class EditorView {
   private initDragHandling(): void {
     this.container.addEventListener('pointerdown', this._onPointerDown)
     this.container.addEventListener('dblclick', this._onDblClick)
+    this.container.addEventListener('contextmenu', this._onContextMenu)
   }
 
   private _onPointerDown = (e: PointerEvent): void => {
@@ -551,33 +562,68 @@ export class EditorView {
     if (this._isDragging || this._dragSourceId) return
 
     const worldPoint = this._clientToWorld(e.clientX, e.clientY)
-
     const nodeId = this.getNodeAtPoint(worldPoint)
-    if (!nodeId) return
 
-    const node = this.state.doc.getNodeById(nodeId)
-    if (!node || node.isRoot) return
+    if (nodeId) {
+      const isMultiSelect = e.shiftKey || e.ctrlKey || e.metaKey
+      if (isMultiSelect) {
+        const currentSelection = Array.from(this.state.selection.selectedIds)
+        const isSelected = currentSelection.includes(nodeId)
+        let newSelection: string[]
+        if (isSelected) {
+          newSelection = currentSelection.filter(id => id !== nodeId)
+        } else {
+          newSelection = [...currentSelection, nodeId]
+        }
+        const tr = new Transaction(this.state.doc, this.state.selection)
+        tr.setSelection(newSelection.length > 0 ? Selection.multiple(newSelection) : Selection.empty())
+        this.dispatch(tr)
+        return
+      }
 
-    const sourceView = this.nodeViewFactory.getTopicView(nodeId)
-    if (!sourceView) return
+      const node = this.state.doc.getNodeById(nodeId)
+      if (!node || node.isRoot) return
 
-    this._isDragging = false
-    this._dragSourceId = nodeId
-    this._dragStartPosition = { ...worldPoint }
+      const sourceView = this.nodeViewFactory.getTopicView(nodeId)
+      if (!sourceView) return
 
-    const sourceBounds = sourceView.getBounds()
+      this._isDragging = false
+      this._dragSourceId = nodeId
+      this._dragStartPosition = { ...worldPoint }
 
-    const srcNode = this.state.doc.getNodeById(nodeId)!
-    this._dragPreviewView = new DragPreviewView(srcNode)
-    this._dropIndicatorView = new DropIndicatorView(srcNode)
+      const sourceBounds = sourceView.getBounds()
 
-    this._dragPreviewView.show(sourceBounds.width, sourceBounds.height)
+      const srcNode = this.state.doc.getNodeById(nodeId)!
+      this._dragPreviewView = new DragPreviewView(srcNode)
+      this._dropIndicatorView = new DropIndicatorView(srcNode)
 
-    this.overlayLayer.add(this._dragPreviewView.group)
-    this.overlayLayer.add(this._dropIndicatorView.group)
+      this._dragPreviewView.show(sourceBounds.width, sourceBounds.height)
 
-    document.addEventListener('pointermove', this._onPointerMove)
-    document.addEventListener('pointerup', this._onPointerUp)
+      this.overlayLayer.add(this._dragPreviewView.group)
+      this.overlayLayer.add(this._dropIndicatorView.group)
+
+      document.addEventListener('pointermove', this._onPointerMove)
+      document.addEventListener('pointerup', this._onPointerUp)
+    } else {
+      this._boxSelectStartPoint = { ...worldPoint }
+      this._isBoxSelecting = false
+
+      const selectionRect = new Rect({
+        x: worldPoint.x,
+        y: worldPoint.y,
+        width: 0,
+        height: 0,
+        stroke: '#4A90D9',
+        strokeWidth: 1,
+        dashPattern: [4, 4],
+        fill: 'rgba(74, 144, 217, 0.1)',
+      })
+      this.overlayLayer.add(selectionRect)
+      this._boxSelectRect = selectionRect
+
+      document.addEventListener('pointermove', this._onBoxSelectMove)
+      document.addEventListener('pointerup', this._onBoxSelectUp)
+    }
   }
 
   private _onDblClick = (e: MouseEvent): void => {
@@ -688,6 +734,222 @@ export class EditorView {
     this._dragStartPosition = null
   }
 
+  private _onBoxSelectMove = (e: PointerEvent): void => {
+    if (!this._boxSelectStartPoint || !this._boxSelectRect) return
+
+    const currentPoint = this._clientToWorld(e.clientX, e.clientY)
+    const start = this._boxSelectStartPoint
+
+    const x = Math.min(start.x, currentPoint.x)
+    const y = Math.min(start.y, currentPoint.y)
+    const width = Math.abs(currentPoint.x - start.x)
+    const height = Math.abs(currentPoint.y - start.y)
+
+    this._boxSelectRect.set({ x, y, width, height })
+
+    if (!this._isBoxSelecting && (width > 2 || height > 2)) {
+      this._isBoxSelecting = true
+    }
+  }
+
+  private _onBoxSelectUp = (e: PointerEvent): void => {
+    document.removeEventListener('pointermove', this._onBoxSelectMove)
+    document.removeEventListener('pointerup', this._onBoxSelectUp)
+
+    if (this._isBoxSelecting && this._boxSelectRect && this.state) {
+      const rect = this._boxSelectRect
+      const rectBounds = {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      }
+
+      const selectedNodeIds: string[] = []
+      const views = this.nodeViewFactory.getViewsByType(NodeViewType.TOPIC)
+
+      for (const view of views) {
+        if (!view.isVisible() || view.isForcedInvisible()) continue
+
+        const bounds = view.getBounds()
+        if (this._rectsIntersect(rectBounds, bounds)) {
+          selectedNodeIds.push(view.nodeId)
+        }
+      }
+
+      if (selectedNodeIds.length > 0) {
+        const tr = new Transaction(this.state.doc, this.state.selection)
+        tr.setSelection(Selection.multiple(selectedNodeIds))
+        this.dispatch(tr)
+      }
+    }
+
+    if (this._boxSelectRect) {
+      this._boxSelectRect.remove()
+      this._boxSelectRect = null
+    }
+    this._boxSelectStartPoint = null
+    this._isBoxSelecting = false
+  }
+
+  private _rectsIntersect(a: { x: number; y: number; width: number; height: number }, b: Bounds): boolean {
+    return a.x < b.x + b.width &&
+           a.x + a.width > b.x &&
+           a.y < b.y + b.height &&
+           a.y + a.height > b.y
+  }
+
+  private _onContextMenu = (e: MouseEvent): void => {
+    e.preventDefault()
+    if (!this.state) return
+
+    const worldPoint = this._clientToWorld(e.clientX, e.clientY)
+    const nodeId = this.getNodeAtPoint(worldPoint)
+
+    if (nodeId) {
+      this.selectNode(nodeId)
+      this._showContextMenu(e.clientX, e.clientY, nodeId)
+    }
+  }
+
+  private _showContextMenu(clientX: number, clientY: number, nodeId: string): void {
+    this._hideContextMenu()
+
+    const menu = document.createElement('div')
+    menu.className = 'y-mindmap-context-menu'
+
+    menu.style.position = 'fixed'
+    menu.style.left = `${clientX}px`
+    menu.style.top = `${clientY}px`
+    menu.style.zIndex = '10001'
+    menu.style.background = '#fff'
+    menu.style.borderRadius = '8px'
+    menu.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05)'
+    menu.style.padding = '4px 0'
+    menu.style.minWidth = '160px'
+    menu.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    menu.style.fontSize = '13px'
+    menu.style.color = '#333'
+    menu.style.userSelect = 'none'
+
+    const items = [
+      { label: '添加子节点', action: () => this._dispatchCommand('addSubTopic', nodeId) },
+      { label: '添加兄弟节点', action: () => this._dispatchCommand('addSiblingTopic', nodeId) },
+      { label: '删除', action: () => this._dispatchCommand('deleteNode', nodeId), danger: true },
+      { label: '折叠/展开', action: () => this._dispatchCommand('toggleFold', nodeId) },
+      { label: '编辑标题', action: () => this.startEditing(nodeId) },
+    ]
+
+    for (const item of items) {
+      const menuItem = document.createElement('div')
+      menuItem.textContent = item.label
+      menuItem.style.padding = '8px 16px'
+      menuItem.style.cursor = 'pointer'
+      menuItem.style.transition = 'background 0.1s'
+
+      if (item.danger) {
+        menuItem.style.color = '#e74c3c'
+      }
+
+      menuItem.addEventListener('mouseenter', () => {
+        menuItem.style.background = '#f5f5f5'
+      })
+      menuItem.addEventListener('mouseleave', () => {
+        menuItem.style.background = 'transparent'
+      })
+      menuItem.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      })
+      menuItem.addEventListener('click', (e) => {
+        e.stopPropagation()
+        item.action()
+        this._hideContextMenu()
+      })
+
+      menu.appendChild(menuItem)
+    }
+
+    this.container.appendChild(menu)
+    this._contextMenu = menu
+
+    const menuRect = menu.getBoundingClientRect()
+    const containerRect = this.container.getBoundingClientRect()
+    if (menuRect.right > containerRect.right) {
+      menu.style.left = `${clientX - menuRect.width}px`
+    }
+    if (menuRect.bottom > containerRect.bottom) {
+      menu.style.top = `${clientY - menuRect.height}px`
+    }
+
+    this._contextMenuClickHandler = (e: MouseEvent) => {
+      if (!menu.contains(e.target as Node)) {
+        this._hideContextMenu()
+      }
+    }
+    this._contextMenuKeyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        this._hideContextMenu()
+      }
+    }
+
+    setTimeout(() => {
+      document.addEventListener('click', this._contextMenuClickHandler!)
+      document.addEventListener('keydown', this._contextMenuKeyHandler!)
+    }, 0)
+  }
+
+  private _hideContextMenu(): void {
+    if (this._contextMenu) {
+      this._contextMenu.remove()
+      this._contextMenu = null
+    }
+    if (this._contextMenuClickHandler) {
+      document.removeEventListener('click', this._contextMenuClickHandler)
+      this._contextMenuClickHandler = null
+    }
+    if (this._contextMenuKeyHandler) {
+      document.removeEventListener('keydown', this._contextMenuKeyHandler)
+      this._contextMenuKeyHandler = null
+    }
+  }
+
+  private _dispatchCommand(command: string, nodeId: string): void {
+    if (!this.state) return
+    const tr = this.state.tr
+
+    switch (command) {
+      case 'addSubTopic': {
+        const newNode = this.state.doc.createNode('New Topic')
+        tr.addNode(newNode, nodeId)
+        tr.setSelection(Selection.single(newNode.id))
+        break
+      }
+      case 'addSiblingTopic': {
+        const parent = this.state.doc.findParent(nodeId)
+        if (parent) {
+          const newNode = this.state.doc.createNode('New Topic')
+          tr.addNode(newNode, parent.id)
+          tr.setSelection(Selection.single(newNode.id))
+        }
+        break
+      }
+      case 'deleteNode': {
+        tr.removeNode(nodeId)
+        break
+      }
+      case 'toggleFold': {
+        const node = this.state.doc.getNodeById(nodeId)
+        if (node) {
+          tr.updateNode(nodeId, { folded: !node.folded })
+        }
+        break
+      }
+    }
+
+    this.dispatch(tr)
+  }
+
   private _cleanupDragVisuals(): void {
     if (this._dragPreviewView) {
       this._dragPreviewView.group.remove()
@@ -702,14 +964,24 @@ export class EditorView {
   private _cleanupDrag(): void {
     this.container.removeEventListener('pointerdown', this._onPointerDown)
     this.container.removeEventListener('dblclick', this._onDblClick)
+    this.container.removeEventListener('contextmenu', this._onContextMenu)
     document.removeEventListener('pointermove', this._onPointerMove)
     document.removeEventListener('pointerup', this._onPointerUp)
+    document.removeEventListener('pointermove', this._onBoxSelectMove)
+    document.removeEventListener('pointerup', this._onBoxSelectUp)
     this._cleanupDragVisuals()
+    this._hideContextMenu()
     this._isDragging = false
     this._dragSourceId = null
     this._dragStartPosition = null
     this._pointerMoveHandler = null
     this._pointerUpHandler = null
+    this._boxSelectStartPoint = null
+    this._isBoxSelecting = false
+    if (this._boxSelectRect) {
+      this._boxSelectRect.remove()
+      this._boxSelectRect = null
+    }
   }
 
   // ── Hit Testing ──
