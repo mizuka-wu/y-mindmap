@@ -1,4 +1,4 @@
-import { StyleData, Point, ExtensionData } from './common'
+import { StyleData, Point, ExtensionData, GradientData } from './common'
 import { TopicData } from './topic'
 
 export interface SheetData {
@@ -57,6 +57,16 @@ export interface ThemeData {
   relationship?: StyleData
   summaryTopic?: StyleData
   summary?: StyleData
+  connections?: StyleData
+  background?: {
+    color?: string
+    gradient?: GradientData
+    image?: string
+  }
+  wallpaper?: {
+    color?: string
+    image?: string
+  }
 }
 
 export interface LegendData {

@@ -4,6 +4,8 @@ export { TitleableView } from './core/titleable-view'
 
 export { StyleManager, styleManager } from './core/style-manager'
 export { StyleKey } from '@y-mindmap/core'
+export { ThemeManager, themeManager } from './core/theme-manager'
+export type { ThemeChangeListener } from './core/theme-manager'
 
 export { TopicNodeView } from './node-views/topic-node-view'
 export { ConnectionNodeView } from './node-views/connection-node-view'

@@ -7,6 +7,8 @@ import { TopicNodeView } from './node-views/topic-node-view'
 import { BranchNodeView } from './node-views/containers/branch-node-view'
 import { ConnectionNodeView } from './node-views/connection-node-view'
 import { DirtyFlag } from './core/node-view'
+import { themeManager, type ThemeChangeListener } from './core/theme-manager'
+import type { ThemeData } from '@y-mindmap/core'
 
 export interface EditorViewConfig {
   container: HTMLElement
@@ -33,6 +35,8 @@ export class EditorView {
   private _isUpdating: boolean = false
   private _pendingDirtyNodeIds: Set<string> = new Set()
   
+  private _themeUnsubscribe: (() => void) | null = null
+  
   constructor(config: EditorViewConfig) {
     this.container = config.container
     this.layoutEngine = config.layoutEngine || new MapLayoutEngine()
@@ -46,6 +50,10 @@ export class EditorView {
     this.connectionLayer = this.app.addLeafer({ type: 'draw' })
     this.topicLayer = this.app.addLeafer({ type: 'draw' })
     this.overlayLayer = this.app.addLeafer({ type: 'draw' })
+    
+    this._themeUnsubscribe = themeManager.onThemeChange(() => {
+      this._refreshAllColorStyles()
+    })
     
     if (config.state) {
       this.setState(config.state)
@@ -333,6 +341,22 @@ export class EditorView {
   fitToContent(): void {
     this.app.zoomToFit({ padding: 40 })
   }
+
+  setTheme(theme: ThemeData): void {
+    themeManager.setTheme(theme)
+    this._refreshAllColorStyles()
+  }
+
+  setThemeById(themeId: string): void {
+    themeManager.setThemeById(themeId)
+    this._refreshAllColorStyles()
+  }
+
+  private _refreshAllColorStyles(): void {
+    if (this._rootBranch) {
+      this._rootBranch.refreshColorStyles()
+    }
+  }
   
   getTopicView(nodeId: string): TopicNodeView | undefined {
     return this.nodeViewFactory.getTopicView(nodeId)
@@ -343,6 +367,10 @@ export class EditorView {
   }
   
   destroy(): void {
+    if (this._themeUnsubscribe) {
+      this._themeUnsubscribe()
+      this._themeUnsubscribe = null
+    }
     this._rootBranch?.destroy()
     this._rootBranch = null
     this._branchMap.clear()

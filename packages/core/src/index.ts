@@ -83,4 +83,5 @@ export {
   DEFAULT_CONNECTION_STYLE,
   LAYOUT_CONSTANTS,
   DEFAULT_KEYMAP,
+  PRESET_THEMES,
 } from './constants'

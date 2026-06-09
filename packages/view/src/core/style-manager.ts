@@ -1,6 +1,7 @@
 import { StyleKey, DEFAULT_TOPIC_STYLE, DEFAULT_CONNECTION_STYLE } from '@y-mindmap/core'
 import type { NodeView } from './node-view'
 import type { TopicNodeView } from '../node-views/topic-node-view'
+import { themeManager } from './theme-manager'
 
 interface RGBA {
   r: number
@@ -20,13 +21,25 @@ export class StyleManager {
   }
 
   getStyleValue(nodeView: NodeView, key: StyleKey): any {
+    // 1. Try node's own style
     const sourceNode = this.getStyleSourceNode(nodeView)
-    if (!sourceNode) return undefined
+    if (sourceNode) {
+      const style = sourceNode.getNode().style
+      if (style?.properties) {
+        const value = style.properties[key]
+        if (value !== undefined) return value
+      }
+    }
 
-    const style = sourceNode.getNode().style
-    if (!style?.properties) return undefined
+    // 2. Try theme style based on node level
+    const level = this.getNodeLevel(nodeView)
+    if (level) {
+      const themeValue = themeManager.getThemeStyleValue(level, key)
+      if (themeValue !== undefined) return themeValue
+    }
 
-    return style.properties[key]
+    // 3. Fall back to default
+    return this.getDefaultStyleValue(key)
   }
 
   getStyleValueOrDefault(nodeView: NodeView, key: StyleKey, defaultValue: any): any {
@@ -60,6 +73,16 @@ export class StyleManager {
 
   isCalloutBranch(branchView: NodeView): boolean {
     return branchView.getNode().type === 'callout'
+  }
+
+  private getNodeLevel(nodeView: NodeView): 'central' | 'main' | 'sub' | null {
+    const node = nodeView.getNode()
+    if (node.type === 'root') return 'central'
+
+    const parent = nodeView.getParent?.()
+    if (parent?.getNode?.()?.type === 'root') return 'main'
+
+    return 'sub'
   }
 
   getDefaultStyleValue(key: StyleKey): any {
