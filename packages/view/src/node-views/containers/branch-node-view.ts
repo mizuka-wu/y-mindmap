@@ -226,7 +226,7 @@ export class BranchNodeView extends NodeView {
   private _updateChildrenVisibility(): void {
     const allChildren = this.getAllChildren()
     for (const child of allChildren) {
-      child.setVisible(!this._isCollapsed)
+      child.setForcedInvisible(this._isCollapsed)
       if (this._isCollapsed) {
         child._updateChildrenVisibility()
       }

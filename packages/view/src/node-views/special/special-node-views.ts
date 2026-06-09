@@ -10,12 +10,142 @@ export class MatrixNodeView extends NodeView {
   private _borderWidth: number = 1
   
   private cells: MatrixCellNodeView[][] = []
+  private borderElement: Rect | null = null
 
   constructor(node: MindMapNode, rows: number = 2, columns: number = 2) {
     super(node)
     this._rows = rows
     this._columns = columns
   }
+
+  protected initialize(): void {
+    this.borderElement = new Rect({
+      fill: 'none',
+      stroke: this._borderColor,
+      strokeWidth: this._borderWidth,
+      cornerRadius: 4,
+    })
+    this.group.add(this.borderElement)
+    this.createCells()
+  }
+
+  private createCells(): void {
+    for (const row of this.cells) {
+      for (const cell of row) {
+        cell.destroy()
+      }
+    }
+    this.cells = []
+
+    for (let r = 0; r < this._rows; r++) {
+      const row: MatrixCellNodeView[] = []
+      for (let c = 0; c < this._columns; c++) {
+        const cell = new MatrixCellNodeView(this._node, r, c)
+        row.push(cell)
+        this.addChild(cell)
+      }
+      this.cells.push(row)
+    }
+  }
+
+  protected calculatePreferredSize(): Size {
+    let maxCellWidth = 0
+    let maxCellHeight = 0
+    
+    for (const row of this.cells) {
+      for (const cell of row) {
+        const cellSize = cell.getPreferredSize()
+        maxCellWidth = Math.max(maxCellWidth, cellSize.width)
+        maxCellHeight = Math.max(maxCellHeight, cellSize.height)
+      }
+    }
+    
+    const totalWidth = maxCellWidth * this._columns + this._cellPadding * (this._columns + 1)
+    const totalHeight = maxCellHeight * this._rows + this._cellPadding * (this._rows + 1)
+    
+    return { width: totalWidth, height: totalHeight }
+  }
+
+  protected applyLayout(): void {
+    const cellWidth = (this._size.width - this._cellPadding * (this._columns + 1)) / this._columns
+    const cellHeight = (this._size.height - this._cellPadding * (this._rows + 1)) / this._rows
+    
+    for (let r = 0; r < this._rows; r++) {
+      for (let c = 0; c < this._columns; c++) {
+        const cell = this.cells[r]![c]!
+        cell.setPosition({
+          x: this._cellPadding + c * (cellWidth + this._cellPadding),
+          y: this._cellPadding + r * (cellHeight + this._cellPadding),
+        })
+        cell.setSize({ width: cellWidth, height: cellHeight })
+      }
+    }
+    
+    if (this.borderElement) {
+      this.borderElement.width = this._size.width
+      this.borderElement.height = this._size.height
+    }
+  }
+
+  protected applyPaint(): void {
+    if (this.borderElement) {
+      this.borderElement.stroke = this._borderColor
+      this.borderElement.strokeWidth = this._borderWidth
+    }
+  }
+
+  protected updateStyle(): void {
+    this.invalidatePaint()
+    this.invalidateLayout()
+  }
+
+  getCell(row: number, column: number): MatrixCellNodeView | null {
+    if (row < 0 || row >= this._rows || column < 0 || column >= this._columns) {
+      return null
+    }
+    return this.cells[row]![column]!
+  }
+
+  getRows(): number {
+    return this._rows
+  }
+
+  getColumns(): number {
+    return this._columns
+  }
+
+  setRows(rows: number): void {
+    if (this._rows === rows) return
+    this._rows = rows
+    this.createCells()
+    this.invalidateLayout()
+  }
+
+  setColumns(columns: number): void {
+    if (this._columns === columns) return
+    this._columns = columns
+    this.createCells()
+    this.invalidateLayout()
+  }
+
+  setCellPadding(padding: number): void {
+    if (this._cellPadding === padding) return
+    this._cellPadding = padding
+    this.invalidateLayout()
+  }
+
+  setBorderColor(color: string): void {
+    if (this._borderColor === color) return
+    this._borderColor = color
+    this.invalidatePaint()
+  }
+
+  setBorderWidth(width: number): void {
+    if (this._borderWidth === width) return
+    this._borderWidth = width
+    this.invalidatePaint()
+  }
+}
 
   protected initialize(): void {
     this.createCells()

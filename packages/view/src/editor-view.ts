@@ -59,6 +59,7 @@ export class EditorView {
   
   private _editingNodeId: string | null = null
   private _editOverlay: HTMLElement | null = null
+  private _editToolbar: HTMLElement | null = null
   private _onTitleUpdate: ((nodeId: string, title: string) => void) | null = null
   private _editKeyDownHandler: ((e: KeyboardEvent) => void) | null = null
   private _editBlurHandler: ((e: FocusEvent) => void) | null = null
@@ -802,12 +803,16 @@ export class EditorView {
 
     if (!this._isBoxSelecting && (width > 2 || height > 2)) {
       this._isBoxSelecting = true
+      this._setOutsideBoxSelectNodesForcedInvisible({ x, y, width, height })
     }
   }
 
   private _onBoxSelectUp = (e: PointerEvent): void => {
     document.removeEventListener('pointermove', this._onBoxSelectMove)
     document.removeEventListener('pointerup', this._onBoxSelectUp)
+
+    // Restore all nodes visibility
+    this._restoreAllNodesVisibility()
 
     if (this._isBoxSelecting && this._boxSelectRect && this.state) {
       const rect = this._boxSelectRect
@@ -843,6 +848,29 @@ export class EditorView {
     }
     this._boxSelectStartPoint = null
     this._isBoxSelecting = false
+  }
+
+  private _setOutsideBoxSelectNodesForcedInvisible(boxBounds: { x: number; y: number; width: number; height: number }): void {
+    const views = this.nodeViewFactory.getViewsByType(NodeViewType.TOPIC)
+    const expandedBox = {
+      x: boxBounds.x - 100,
+      y: boxBounds.y - 100,
+      width: boxBounds.width + 200,
+      height: boxBounds.height + 200,
+    }
+    
+    for (const view of views) {
+      const bounds = view.getBounds()
+      const isInside = this._rectsIntersect(expandedBox, bounds)
+      view.setForcedInvisible(!isInside)
+    }
+  }
+
+  private _restoreAllNodesVisibility(): void {
+    const views = this.nodeViewFactory.getViewsByType(NodeViewType.TOPIC)
+    for (const view of views) {
+      view.setForcedInvisible(false)
+    }
   }
 
   private _rectsIntersect(a: { x: number; y: number; width: number; height: number }, b: Bounds): boolean {
@@ -1148,6 +1176,10 @@ export class EditorView {
     if (!view) return
 
     this._editingNodeId = nodeId
+    
+    // Optimize rendering - set non-editing nodes as forced invisible
+    this._setNonEditingNodesForcedInvisible(nodeId, true)
+    
     this._createEditOverlay(nodeId, view)
   }
 
@@ -1162,8 +1194,20 @@ export class EditorView {
       }
     }
 
+    // Restore non-editing nodes visibility
+    this._setNonEditingNodesForcedInvisible(this._editingNodeId, false)
+    
     this._removeEditOverlay()
     this._editingNodeId = null
+  }
+
+  private _setNonEditingNodesForcedInvisible(editingNodeId: string, forcedInvisible: boolean): void {
+    const views = this.nodeViewFactory.getViewsByType(NodeViewType.TOPIC)
+    for (const view of views) {
+      if (view.nodeId !== editingNodeId) {
+        view.setForcedInvisible(forcedInvisible)
+      }
+    }
   }
 
   private _createEditOverlay(nodeId: string, view: TopicNodeView): void {
@@ -1177,6 +1221,10 @@ export class EditorView {
     const screenY = absY * this.app.zoom + this.app.y
     const screenWidth = titleBounds.width * this.app.zoom
     const screenHeight = titleBounds.height * this.app.zoom
+
+    const toolbar = this._createFormatToolbar(screenX, screenY - 36)
+    this.container.appendChild(toolbar)
+    this._editToolbar = toolbar
 
     const overlay = document.createElement('div')
     overlay.className = 'y-mindmap-edit-overlay'
@@ -1228,7 +1276,170 @@ export class EditorView {
     })
   }
 
+  private _createFormatToolbar(x: number, y: number): HTMLElement {
+    const toolbar = document.createElement('div')
+    toolbar.className = 'y-mindmap-format-toolbar'
+    toolbar.style.position = 'absolute'
+    toolbar.style.left = `${x}px`
+    toolbar.style.top = `${y}px`
+    toolbar.style.zIndex = '10001'
+    toolbar.style.display = 'flex'
+    toolbar.style.gap = '2px'
+    toolbar.style.padding = '4px 6px'
+    toolbar.style.background = '#fff'
+    toolbar.style.borderRadius = '6px'
+    toolbar.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.05)'
+    toolbar.style.userSelect = 'none'
+
+    const buttons = [
+      { label: 'B', command: 'bold', style: 'font-weight:bold' },
+      { label: 'I', command: 'italic', style: 'font-style:italic' },
+      { label: 'U', command: 'underline', style: 'text-decoration:underline' },
+    ]
+
+    for (const btn of buttons) {
+      const button = document.createElement('button')
+      button.textContent = btn.label
+      button.setAttribute('data-command', btn.command)
+      button.style.cssText = `
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #333;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        ${btn.style};
+      `
+      button.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      })
+      button.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        document.execCommand(btn.command, false)
+        this._editOverlay?.focus()
+      })
+      button.addEventListener('mouseenter', () => {
+        button.style.background = '#f0f0f0'
+      })
+      button.addEventListener('mouseleave', () => {
+        button.style.background = 'transparent'
+      })
+      toolbar.appendChild(button)
+    }
+
+    const separator = document.createElement('div')
+    separator.style.cssText = 'width:1px;height:20px;background:#e0e0e0;margin:4px 2px'
+    toolbar.appendChild(separator)
+
+    const colorContainer = document.createElement('div')
+    colorContainer.style.position = 'relative'
+
+    const colorButton = document.createElement('button')
+    colorButton.textContent = 'A'
+    colorButton.style.cssText = `
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 3px solid #e74c3c;
+    `
+    colorButton.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+    })
+
+    const colorPalette = document.createElement('div')
+    colorPalette.style.cssText = `
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      padding: 6px;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      z-index: 10002;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 4px;
+    `
+
+    const colors = [
+      '#000000', '#333333', '#666666', '#999999', '#cccccc',
+      '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db',
+      '#9b59b6', '#1abc9c', '#d35400', '#2c3e50', '#7f8c8d',
+    ]
+
+    for (const color of colors) {
+      const swatch = document.createElement('div')
+      swatch.style.cssText = `
+        width: 20px;
+        height: 20px;
+        background: ${color};
+        border-radius: 3px;
+        cursor: pointer;
+        border: 1px solid rgba(0,0,0,0.1);
+      `
+      swatch.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+      })
+      swatch.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        document.execCommand('foreColor', false, color)
+        colorPalette.style.display = 'none'
+        this._editOverlay?.focus()
+      })
+      swatch.addEventListener('mouseenter', () => {
+        swatch.style.transform = 'scale(1.2)'
+      })
+      swatch.addEventListener('mouseleave', () => {
+        swatch.style.transform = 'scale(1)'
+      })
+      colorPalette.appendChild(swatch)
+    }
+
+    colorButton.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      colorPalette.style.display = colorPalette.style.display === 'none' ? 'grid' : 'none'
+    })
+    colorButton.addEventListener('mouseenter', () => {
+      colorButton.style.background = '#f0f0f0'
+    })
+    colorButton.addEventListener('mouseleave', () => {
+      colorButton.style.background = 'transparent'
+    })
+
+    colorContainer.appendChild(colorButton)
+    colorContainer.appendChild(colorPalette)
+    toolbar.appendChild(colorContainer)
+
+    return toolbar
+  }
+
   private _removeEditOverlay(): void {
+    if (this._editToolbar) {
+      this._editToolbar.remove()
+      this._editToolbar = null
+    }
+    
     if (!this._editOverlay) return
 
     if (this._editKeyDownHandler) {
