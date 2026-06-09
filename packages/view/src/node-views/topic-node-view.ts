@@ -65,7 +65,7 @@ export class TopicNodeView extends TitleableView {
     const fontFamily = 'Arial'
     
     const titleSize = this.measureText(this._node.title, fontSize, fontFamily)
-    const padding = this.getShapePadding()
+    const padding = ShapeFactory.getPadding(this._shapeClass)
     
     const preferredWidth = titleSize.width + padding.left + padding.right
     const customWidth = (this._node as any).customWidth
@@ -462,7 +462,7 @@ export class TopicNodeView extends TitleableView {
   }
   
   getTitleBounds(): { x: number; y: number; width: number; height: number } {
-    const padding = this.getShapePadding()
+    const padding = ShapeFactory.getPadding(this._shapeClass)
     const hasImage = !!this._node.image
     const titleHeight = hasImage ? this._size.height - 80 : this._size.height
 
@@ -492,33 +492,6 @@ export class TopicNodeView extends TitleableView {
     return { fontSize, fontFamily, color, fontWeight, fontStyle, textAlign }
   }
 
-  private getShapePadding(): { top: number; right: number; bottom: number; left: number } {
-    const shapeClass = styleManager.getStyleValueOrDefault(this, StyleKey.SHAPE_CLASS, 'roundedRect')
-    
-    switch (shapeClass) {
-      case 'roundedRect':
-      case 'rectangle':
-        return { top: 12, right: 16, bottom: 12, left: 16 }
-      case 'ellipse':
-      case 'circle':
-        return { top: 20, right: 24, bottom: 20, left: 24 }
-      case 'cloud':
-        return { top: 24, right: 28, bottom: 24, left: 28 }
-      case 'hexagon':
-      case 'parallelogram':
-      case 'diamond':
-      case 'triangle':
-      case 'star':
-        return { top: 18, right: 22, bottom: 18, left: 22 }
-      case 'capsule':
-      case 'barrel':
-      case 'paranCallout':
-        return { top: 14, right: 18, bottom: 14, left: 18 }
-      default:
-        return { top: 12, right: 16, bottom: 12, left: 16 }
-    }
-  }
-  
   destroy(): void {
     for (const view of this.markerViews) {
       view.group.remove()
