@@ -478,6 +478,9 @@ importers:
       '@y-mindmap/core':
         specifier: workspace:*
         version: link:../core
+      '@y-mindmap/plugins':
+        specifier: workspace:*
+        version: link:../plugins
       '@y-mindmap/state':
         specifier: workspace:*
         version: link:../state

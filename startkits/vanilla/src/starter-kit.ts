@@ -47,7 +47,7 @@ export interface StarterKitOptions {
 }
 
 export function StarterKit(options?: StarterKitOptions): ExtensionDefinition[] {
-  const extensions: ExtensionDefinition[] = []
+  const extensions: ExtensionDefinition<any>[] = []
 
   if (options?.contextMenu !== false) {
     extensions.push(

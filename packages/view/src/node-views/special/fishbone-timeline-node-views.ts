@@ -506,7 +506,7 @@ export class TimelineLineNodeView extends NodeView {
     for (let i = 0; i < this.dots.length; i++) {
       const x = this._orientation === 'horizontal' ? i * spacing : 15
       const y = this._orientation === 'horizontal' ? 15 : i * spacing
-      this.dots[i].path = `M ${x} ${y} m -4 0 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0`
+      this.dots[i]!.path = `M ${x} ${y} m -4 0 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0`
     }
   }
 

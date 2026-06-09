@@ -1,7 +1,9 @@
-import type { MindMapNode, ConnectionLayout, MarkerData, ImageData, RelationshipData } from '@y-mindmap/state'
-import type { StyleData } from '@y-mindmap/core'
+import type { MindMapNode, RelationshipData } from '@y-mindmap/state'
+import type { StyleData, MarkerData, ImageData } from '@y-mindmap/core'
 import { DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
 import { NodeView } from '../core/node-view'
+import type { ConnectionLayout } from './connection-node-view'
+import type { InformationData } from './components/information-node-view'
 import { TopicNodeView } from './topic-node-view'
 import { ConnectionNodeView } from './connection-node-view'
 import { TitleNodeView } from './components/title-node-view'
@@ -112,7 +114,7 @@ export class NodeViewFactory {
     return this.getOrCreate(NodeViewType.IMAGE, node.id, () => new ImageNodeView(node, imageData)) as ImageNodeView
   }
   
-  createInformationView(node: MindMapNode, iconType: string): InformationNodeView {
+  createInformationView(node: MindMapNode, iconType: InformationData): InformationNodeView {
     return this.getOrCreate(NodeViewType.INFORMATION, node.id, () => new InformationNodeView(node, iconType)) as InformationNodeView
   }
   

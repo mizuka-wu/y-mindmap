@@ -45,7 +45,7 @@ export class MarkerNodeView extends NodeView {
 
   protected applyPaint(): void {
     if (this.iconElement) {
-      this.iconElement.text = this.getMarkerIcon()
+      if ('text' in this.iconElement) { this.iconElement.text = this.getMarkerIcon() }
     }
   }
 

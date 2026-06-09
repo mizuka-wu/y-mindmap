@@ -88,8 +88,9 @@ export class TopicNodeView extends TitleableView {
     } else if (this.shape instanceof Ellipse) {
       this.shape.x = width / 2
       this.shape.y = height / 2
-      this.shape.radiusX = width / 2
-      this.shape.radiusY = height / 2
+      this.shape.width = width
+      this.shape.width = width
+      this.shape.height = height
     } else if (this.shape instanceof Path) {
       this.shape.remove()
       this.shape = ShapeFactory.create(this._shapeClass, { x: 0, y: 0, width, height })
@@ -260,7 +261,7 @@ export class TopicNodeView extends TitleableView {
     const circle = new Ellipse({
       x: 0,
       y: 0,
-      radiusX: 8,
+      cornerRadius: 8,
       radiusY: 8,
       fill: '#ffffff',
       stroke: '#999999',

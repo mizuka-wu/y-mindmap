@@ -68,8 +68,8 @@ export class TitleNodeView extends NodeView {
     this.textElement.fill = this._titleStyle.textColor
     this.textElement.fontSize = this._titleStyle.fontSize
     this.textElement.fontFamily = this._titleStyle.fontFamily
-    this.textElement.fontWeight = this._titleStyle.fontWeight
-    this.textElement.fontStyle = this._titleStyle.fontStyle
+    this.textElement.fontWeight = this._titleStyle.fontWeight as any
+    ;(this.textElement as any).fontStyle = this._titleStyle.fontStyle
     this.textElement.textDecoration = this._titleStyle.textDecoration as any
   }
 

@@ -21,6 +21,7 @@
     "@y-mindmap/core": "workspace:*",
     "@y-mindmap/state": "workspace:*",
     "@y-mindmap/commands": "workspace:*",
-    "@y-mindmap/view": "workspace:*"
+    "@y-mindmap/view": "workspace:*",
+    "@y-mindmap/plugins": "workspace:*"
   }
 }

@@ -411,4 +411,12 @@ export class MindMapNode {
       type: TopicType.ATTACHED,
     })
   }
+
+  static create(title: string): MindMapNode {
+    return new MindMapNode({
+      id: crypto.randomUUID(),
+      title,
+      type: TopicType.ATTACHED,
+    })
+  }
 }

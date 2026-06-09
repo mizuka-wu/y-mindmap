@@ -244,8 +244,8 @@ export class ResizeBoxNodeView extends NodeView {
 
     for (let i = 0; i < this.handles.length; i++) {
       const pos = positions[i]
-      this.handles[i].x = pos.x * (this._size.width / 2) - this._handleSize / 2
-      this.handles[i].y = pos.y * (this._size.height / 2) - this._handleSize / 2
+      this.handles[i]!.x = pos!.x * (this._size.width / 2) - this._handleSize / 2
+      this.handles[i]!.y = pos!.y * (this._size.height / 2) - this._handleSize / 2
     }
   }
 

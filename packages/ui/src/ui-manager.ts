@@ -6,7 +6,7 @@ import { StatusBar } from './status-bar'
 import { MiniMap } from './minimap'
 import { injectStyles } from './styles'
 import { Bounds, Point } from '@y-mindmap/core'
-import type { PluginManager } from '@y-mindmap/plugins'
+import type { PluginManager, MenuItem, ToolbarButton } from '@y-mindmap/plugins'
 
 export interface UIContext {
   state: EditorState
@@ -100,7 +100,7 @@ export class UIManager {
   }
 
   setPluginManager(pluginManager: PluginManager): void {
-    const menuItems = pluginManager.getMenuItems().map(item => ({
+    const menuItems = pluginManager.getMenuItems().map((item: MenuItem) => ({
       id: item.id,
       label: item.label,
       icon: item.icon,
@@ -109,7 +109,7 @@ export class UIManager {
     }))
     this.contextMenu.setPluginMenuItems(menuItems)
 
-    const toolbarButtons = pluginManager.getToolbarButtons().map(btn => ({
+    const toolbarButtons = pluginManager.getToolbarButtons().map((btn: ToolbarButton) => ({
       id: btn.id,
       label: btn.label,
       icon: btn.icon,

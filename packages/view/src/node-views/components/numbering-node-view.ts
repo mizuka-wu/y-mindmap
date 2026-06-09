@@ -62,7 +62,7 @@ export class NumberingNodeView extends TitleNodeView {
   }
 
   private toRoman(num: number): string {
-    const romanNumerals = [
+    const romanNumerals: Array<[number, string]> = [
       [1000, 'M'],
       [900, 'CM'],
       [500, 'D'],
@@ -82,9 +82,9 @@ export class NumberingNodeView extends TitleNodeView {
     let remaining = num
     
     for (const [value, symbol] of romanNumerals) {
-      while (remaining >= value) {
+      while (remaining >= value!) {
         result += symbol
-        remaining -= value
+        remaining -= value!
       }
     }
     

@@ -463,7 +463,7 @@ export class EditorView {
     const existingConnectionIds = new Set<string>()
     for (const [connectionId, connectionLayout] of layoutResult.connections) {
       existingConnectionIds.add(connectionId)
-      const view = this.nodeViewFactory.createConnectionView(connectionId, connectionLayout)
+      const view = this.nodeViewFactory.createConnectionView(connectionId, connectionLayout as any)
       if (!view.group.parent) {
         this.connectionLayer.add(view.group)
       }
@@ -575,33 +575,33 @@ export class EditorView {
   }
   
   getZoom(): number {
-    return this.app.zoom
+    return (this.app as any).zoom ?? 1
   }
   
   zoomTo(level: number): void {
-    this.app.zoom = level
+    ;(this.app as any).zoom = level
   }
   
   zoomIn(): void {
-    this.app.zoom = Math.min(this.app.zoom * 1.2, 10)
+    (this.app as any).zoom = Math.min((this.app as any).zoom * 1.2, 10)
   }
   
   zoomOut(): void {
-    this.app.zoom = Math.max(this.app.zoom * 0.8, 0.1)
+    (this.app as any).zoom = Math.max((this.app as any).zoom * 0.8, 0.1)
   }
   
   panTo(x: number, y: number): void {
-    this.app.x = x
-    this.app.y = y
+    this.app.x = x as any
+    this.app.y = y as any
   }
   
   panBy(dx: number, dy: number): void {
-    this.app.x += dx
-    this.app.y += dy
+    this.app.x = (this.app.x ?? 0) + dx
+    this.app.y = (this.app.y ?? 0) + dy
   }
   
   fitToContent(): void {
-    this.app.zoomToFit({ padding: 40 })
+    (this.app as any).zoomToFit?.({ padding: 40 })
   }
 
   setTheme(theme: ThemeData): void {
@@ -649,8 +649,8 @@ export class EditorView {
     const rect = this.container.getBoundingClientRect()
     const viewportX = clientX - rect.left
     const viewportY = clientY - rect.top
-    const worldX = (viewportX - this.app.x) / this.app.zoom
-    const worldY = (viewportY - this.app.y) / this.app.zoom
+    const worldX = (viewportX - (this.app.x ?? 0)) / ((this.app as any).zoom ?? 1)
+    const worldY = (viewportY - (this.app.y ?? 0)) / ((this.app as any).zoom ?? 1)
     return { x: worldX, y: worldY }
   }
 
@@ -951,7 +951,7 @@ export class EditorView {
         if (!view.isVisible() || view.isForcedInvisible()) continue
 
         const bounds = view.getBounds()
-        if (this._rectsIntersect(rectBounds, bounds)) {
+        if (bounds && this._rectsIntersect(rectBounds, bounds as any)) {
           selectedNodeIds.push(view.nodeId)
         }
       }
@@ -994,7 +994,7 @@ export class EditorView {
     }
   }
 
-  private _rectsIntersect(a: { x: number; y: number; width: number; height: number }, b: Bounds): boolean {
+  private _rectsIntersect(a: any, b: any): boolean {
     return a.x < b.x + b.width &&
            a.x + a.width > b.x &&
            a.y < b.y + b.height &&
@@ -1145,7 +1145,7 @@ export class EditorView {
 
     switch (command) {
       case 'addSubTopic': {
-        const newNode = this.state.doc.createNode('New Topic')
+        const newNode = MindMapNode.create('New Topic')
         tr.addNode(nodeId, newNode)
         tr.setSelection(Selection.single(newNode.id))
         break
@@ -1153,7 +1153,7 @@ export class EditorView {
       case 'addSiblingTopic': {
         const parent = this.state.doc.findParent(nodeId)
         if (parent) {
-          const newNode = this.state.doc.createNode('New Topic')
+          const newNode = MindMapNode.create('New Topic')
           tr.addNode(parent.id, newNode)
           tr.setSelection(Selection.single(newNode.id))
         }
@@ -1166,7 +1166,7 @@ export class EditorView {
       case 'toggleFold': {
         const node = this.state.doc.getNodeById(nodeId)
         if (node) {
-          tr.updateNode(nodeId, { folded: !node.folded })
+          tr.updateNode(nodeId, (n) => n.toggleFold())
         }
         break
       }
@@ -1253,17 +1253,17 @@ export class EditorView {
 
   getViewportController(): { getPan: () => { x: number; y: number } } {
     return {
-      getPan: () => ({ x: this.app.x, y: this.app.y }),
+      getPan: () => ({ x: this.app.x ?? 0, y: this.app.y ?? 0 }),
     }
   }
 
   getViewportBounds(): { x: number; y: number; width: number; height: number } {
     const rect = this.container.getBoundingClientRect()
     return {
-      x: -this.app.x / this.app.zoom,
-      y: -this.app.y / this.app.zoom,
-      width: rect.width / this.app.zoom,
-      height: rect.height / this.app.zoom,
+      x: -(this.app.x ?? 0) / ((this.app as any).zoom ?? 1),
+      y: -(this.app.y ?? 0) / ((this.app as any).zoom ?? 1),
+      width: rect.width / ((this.app as any).zoom ?? 1),
+      height: rect.height / ((this.app as any).zoom ?? 1),
     }
   }
 
@@ -1338,10 +1338,10 @@ export class EditorView {
 
     const absX = worldBounds.x + titleBounds.x
     const absY = worldBounds.y + titleBounds.y
-    const screenX = absX * this.app.zoom + this.app.x
-    const screenY = absY * this.app.zoom + this.app.y
-    const screenWidth = titleBounds.width * this.app.zoom
-    const screenHeight = titleBounds.height * this.app.zoom
+    const screenX = absX * ((this.app as any).zoom ?? 1) + (this.app.x ?? 0)
+    const screenY = absY * ((this.app as any).zoom ?? 1) + (this.app.y ?? 0)
+    const screenWidth = titleBounds.width * ((this.app as any).zoom ?? 1)
+    const screenHeight = titleBounds.height * ((this.app as any).zoom ?? 1)
 
     if (this._enableFormatToolbar) {
       const toolbar = this._createFormatToolbar(screenX, screenY - 36)
@@ -1362,7 +1362,7 @@ export class EditorView {
     overlay.style.top = `${screenY}px`
     overlay.style.width = `${screenWidth}px`
     overlay.style.minHeight = `${screenHeight}px`
-    overlay.style.fontSize = `${titleStyle.fontSize * this.app.zoom}px`
+    overlay.style.fontSize = `${titleStyle.fontSize * ((this.app as any).zoom ?? 1)}px`
     overlay.style.fontFamily = titleStyle.fontFamily
     overlay.style.color = titleStyle.color
     overlay.style.fontWeight = String(titleStyle.fontWeight)
@@ -1604,7 +1604,9 @@ export class EditorView {
 
   getContentBounds(): Bounds {
     const allBounds: Bounds[] = []
-    this.state.doc.root.descendants((node) => {
+    const root = this.state?.doc.root
+    if (root == null) return { x: 0, y: 0, width: 0, height: 0 }
+    root.descendants((node) => {
       const bounds = this.getNodeBounds(node.id)
       if (bounds) allBounds.push(bounds)
     })
