@@ -6,6 +6,7 @@ import { NodeView, Size, Bounds } from '../core/node-view'
 import { styleManager } from '../core/style-manager'
 import { ShapeFactory } from '../shapes/shape-factory'
 import { createWrappedText } from '../utils/text-utils'
+import type { BranchNodeView } from './containers/branch-node-view'
 
 export class TopicNodeView extends NodeView {
   private shape: Rect | Ellipse | Path | null = null
@@ -14,6 +15,7 @@ export class TopicNodeView extends NodeView {
   private selectBox: Rect | null = null
   private markerViews: Group[] = []
   private imageContainer: Group | null = null
+  private _owningBranch: BranchNodeView | null = null
 
   protected initialize(): void {
     this.shape = this.createShape()
@@ -34,6 +36,14 @@ export class TopicNodeView extends NodeView {
     if (this._node.image) {
       this.renderImage()
     }
+  }
+
+  setOwningBranch(branch: BranchNodeView | null): void {
+    this._owningBranch = branch
+  }
+
+  getOwningBranch(): BranchNodeView | null {
+    return this._owningBranch
   }
   
   protected calculatePreferredSize(): Size {

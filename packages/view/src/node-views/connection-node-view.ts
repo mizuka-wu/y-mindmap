@@ -1,6 +1,7 @@
 import { Path, Group } from 'leafer-ui'
 import type { MindMapNode } from '@y-mindmap/state'
 import { NodeView, Size, Bounds } from '../core/node-view'
+import type { BranchNodeView } from './containers/branch-node-view'
 
 export interface ConnectionLayout {
   connectionId: string
@@ -35,9 +36,15 @@ export class ConnectionNodeView extends NodeView {
   
   protected applyPaint(): void {
     if (!this.path) return
-    
-    this.path.stroke = this._isSelected ? '#4A90D9' : '#999999'
-    this.path.strokeWidth = this._isSelected ? 3 : 2
+
+    const parent = this.getParent() as BranchNodeView | null
+    if (parent && typeof parent.getLineColor === 'function') {
+      this.path.stroke = this._isSelected ? '#4A90D9' : parent.getLineColor()
+      this.path.strokeWidth = this._isSelected ? 3 : parent.getLineWidth()
+    } else {
+      this.path.stroke = this._isSelected ? '#4A90D9' : '#999999'
+      this.path.strokeWidth = this._isSelected ? 3 : 2
+    }
   }
   
   protected updateStyle(): void {

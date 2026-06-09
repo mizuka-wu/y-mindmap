@@ -1,5 +1,6 @@
 import { StyleKey, DEFAULT_TOPIC_STYLE, DEFAULT_CONNECTION_STYLE } from '@y-mindmap/core'
 import type { NodeView } from './node-view'
+import type { TopicNodeView } from '../node-views/topic-node-view'
 
 // Style inheritance (matching Snowbrush):
 // - If parent is BranchNodeView → read from parent's node
@@ -30,19 +31,24 @@ export class StyleManager {
     return value !== undefined ? value : defaultValue
   }
 
-  // TopicNodeView → read from parent (BranchNodeView or TopicNodeView)
-  // BranchNodeView → read from self
   private getStyleSourceNode(nodeView: NodeView): NodeView | null {
-    const parent = nodeView.getParent()
-    if (!parent) return nodeView
-
-    // If parent has getStructureClass, it's a BranchNodeView
-    if (this.isBranchNodeView(parent)) {
-      return parent
+    if (this.isBranchNodeView(nodeView)) {
+      return nodeView
     }
 
-    // Parent is TopicNodeView (current hierarchy) - read from parent
-    return parent
+    const owningBranch = this.getOwningBranch(nodeView)
+    if (owningBranch) {
+      return owningBranch
+    }
+
+    return nodeView
+  }
+
+  private getOwningBranch(nodeView: NodeView): NodeView | null {
+    if (typeof (nodeView as any).getOwningBranch === 'function') {
+      return (nodeView as any).getOwningBranch() as NodeView | null
+    }
+    return null
   }
 
   private isBranchNodeView(nodeView: NodeView): boolean {

@@ -93,6 +93,11 @@ export abstract class NodeView {
   }
   
   validatePaint(): void {
+    if (this._dirtyFlags & DirtyFlag.STYLE) {
+      this.updateStyle()
+      this._dirtyFlags &= ~DirtyFlag.STYLE
+    }
+
     if (!(this._dirtyFlags & DirtyFlag.PAINT)) return
     
     this._forbidInvalidatePaint = true

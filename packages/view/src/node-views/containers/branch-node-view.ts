@@ -87,7 +87,13 @@ export class BranchNodeView extends NodeView {
   }
 
   setTopicView(topicView: TopicNodeView | null): void {
+    if (this._topicView) {
+      this._topicView.setOwningBranch(null)
+    }
     this._topicView = topicView
+    if (topicView) {
+      topicView.setOwningBranch(this)
+    }
   }
 
   getLineColor(): string {
@@ -112,6 +118,16 @@ export class BranchNodeView extends NodeView {
     }
     for (const child of this._calloutChildren) {
       child.refreshColorStyles()
+    }
+
+    for (const boundary of this._boundaries) {
+      boundary.invalidatePaint()
+    }
+    for (const summary of this._summaries) {
+      summary.invalidatePaint()
+    }
+    if (this._connectionView) {
+      this._connectionView.invalidatePaint()
     }
   }
 

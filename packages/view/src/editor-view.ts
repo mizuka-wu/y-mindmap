@@ -99,29 +99,18 @@ export class EditorView {
           this._branchMap.delete(step.id)
           break
         }
-        case 'toggleFold': {
-          const branch = this._branchMap.get(step.id)
-          if (branch) {
-            const node = this.state?.doc.getNodeById(step.id)
-            branch.onNodeChanged('change:branch', {
-              collapsed: node?.isFolded ?? false,
-            })
-          }
-          break
-        }
-        case 'setStructureClass': {
-          const branch = this._branchMap.get(step.id)
-          if (branch) {
-            branch.onNodeChanged('changeStructureClass', {
-              structureClass: step.structureClass,
-            })
-          }
-          break
-        }
-        case 'updateStyle': {
+        case 'updateNode': {
           const branch = this._branchMap.get(step.id)
           if (branch) {
             branch.refreshColorStyles()
+            branch.getTopicView()?.invalidatePaint()
+          }
+          break
+        }
+        case 'moveNode': {
+          const branch = this._branchMap.get(step.id)
+          if (branch) {
+            branch.invalidateLayout()
           }
           break
         }
@@ -204,6 +193,7 @@ export class EditorView {
           childBranch.setTopicView(childView)
           parentBranch.addChildBranch(childBranch, 'attached')
           this._branchMap.set(child.id, childBranch)
+          childBranch.refreshColorStyles()
         }
 
         this.syncNodeViews(child, childView, this._branchMap.get(child.id)!)
