@@ -50,6 +50,11 @@ import {
 } from "@y-mindmap/interaction";
 import { UIManager, UIContext } from "@y-mindmap/ui";
 import { XMindImporter, XMindExporter } from "@y-mindmap/formats/xmind";
+import { MarkdownImporter, MarkdownExporter } from "@y-mindmap/formats/markdown";
+import { JSONImporter, JSONExporter } from "@y-mindmap/formats/json";
+import { PNGExporter, PNGExportOptions } from "@y-mindmap/formats/png";
+import { SVGExporter, SVGExportOptions } from "@y-mindmap/formats/svg";
+import { PDFExporter, PDFExportOptions } from "@y-mindmap/formats/pdf";
 import { Bounds, Point, AttributeTitle } from "@y-mindmap/core";
 import * as Y from "yjs";
 import {
@@ -99,6 +104,13 @@ export class MindMapEditor {
   private gestureRecognizer: GestureRecognizer | null = null;
   private xmindImporter: XMindImporter;
   private xmindExporter: XMindExporter;
+  private markdownImporter: MarkdownImporter;
+  private markdownExporter: MarkdownExporter;
+  private jsonImporter: JSONImporter;
+  private jsonExporter: JSONExporter;
+  private pngExporter: PNGExporter;
+  private svgExporter: SVGExporter;
+  private pdfExporter: PDFExporter;
 
   private ydoc: Y.Doc | null = null;
   private binding: YDocBinding | null = null;
@@ -194,6 +206,13 @@ export class MindMapEditor {
 
     this.xmindImporter = new XMindImporter();
     this.xmindExporter = new XMindExporter();
+    this.markdownImporter = new MarkdownImporter();
+    this.markdownExporter = new MarkdownExporter();
+    this.jsonImporter = new JSONImporter();
+    this.jsonExporter = new JSONExporter();
+    this.pngExporter = new PNGExporter();
+    this.svgExporter = new SVGExporter();
+    this.pdfExporter = new PDFExporter();
 
     if (options.enableInertialScroll !== false) {
       this.initInertialScroll();
@@ -419,6 +438,74 @@ export class MindMapEditor {
   async exportXMind(): Promise<Blob> {
     const doc = this.getDocument();
     return this.xmindExporter.export(doc.root);
+  }
+
+  async loadMarkdown(text: string): Promise<MindMapNode> {
+    const doc = await this.markdownImporter.import(text);
+    this.loadDocument(MindMapDocument.fromJSON(doc.toJSON()));
+    return doc;
+  }
+
+  async loadMarkdownFile(file: File): Promise<MindMapNode> {
+    const text = await file.text();
+    return this.loadMarkdown(text);
+  }
+
+  async exportMarkdown(): Promise<string> {
+    const doc = this.getDocument();
+    return this.markdownExporter.export(doc.root);
+  }
+
+  async loadJSON(text: string): Promise<MindMapNode> {
+    const doc = await this.jsonImporter.import(text);
+    this.loadDocument(MindMapDocument.fromJSON(doc.toJSON()));
+    return doc;
+  }
+
+  async loadJSONFile(file: File): Promise<MindMapNode> {
+    const text = await file.text();
+    return this.loadJSON(text);
+  }
+
+  async exportJSON(options?: { spaces?: number }): Promise<string> {
+    const doc = this.getDocument();
+    return this.jsonExporter.export(doc.root, options);
+  }
+
+  async exportPNG(options?: PNGExportOptions): Promise<Blob> {
+    const canvas = this.view.getCanvas();
+    const contentBounds = this.getContentBounds();
+    return this.pngExporter.export(canvas, contentBounds, options);
+  }
+
+  async exportSVG(options?: SVGExportOptions): Promise<string> {
+    const doc = this.getDocument();
+    return this.svgExporter.export(doc.root, options);
+  }
+
+  async exportPDF(options?: PDFExportOptions): Promise<Blob> {
+    const canvas = this.view.getCanvas();
+    const contentBounds = this.getContentBounds();
+    return this.pdfExporter.export(canvas, contentBounds, options);
+  }
+
+  private getContentBounds(): Bounds {
+    const allBounds: Bounds[] = [];
+    this.state.doc.root.descendants((node) => {
+      const bounds = this.view.getNodeBounds(node.id);
+      if (bounds) allBounds.push(bounds);
+    });
+
+    if (allBounds.length === 0) {
+      return { x: 0, y: 0, width: 800, height: 600 };
+    }
+
+    const minX = Math.min(...allBounds.map(b => b.x));
+    const minY = Math.min(...allBounds.map(b => b.y));
+    const maxX = Math.max(...allBounds.map(b => b.x + b.width));
+    const maxY = Math.max(...allBounds.map(b => b.y + b.height));
+
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
   getDocument(): MindMapDocument {

@@ -1205,6 +1205,12 @@ export class EditorView {
     setTimeout(() => this.stopEditing(true), 0)
   }
 
+  // ── Export ──
+
+  getCanvas(): HTMLCanvasElement {
+    return this.app.canvas as unknown as HTMLCanvasElement
+  }
+
   // ── Lifecycle ──
 
   destroy(): void {

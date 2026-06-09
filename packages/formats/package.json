@@ -7,8 +7,10 @@
     ".": "./src/index.ts",
     "./xmind": "./src/xmind/index.ts",
     "./markdown": "./src/markdown/index.ts",
+    "./json": "./src/json/index.ts",
     "./png": "./src/png/index.ts",
-    "./pdf": "./src/pdf/index.ts"
+    "./pdf": "./src/pdf/index.ts",
+    "./svg": "./src/svg/index.ts"
   },
   "scripts": {
     "build": "tsc",

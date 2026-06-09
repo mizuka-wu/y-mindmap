@@ -18,6 +18,9 @@ const DEFAULT_KEYMAP: Record<string, string> = {
   'Ctrl+z': 'undo',
   'Ctrl+Shift+z': 'redo',
   'Ctrl+a': 'selectAll',
+  'Ctrl+c': 'copy',
+  'Ctrl+v': 'paste',
+  'Ctrl+x': 'cut',
   'Escape': 'deselectAll',
 }
 
