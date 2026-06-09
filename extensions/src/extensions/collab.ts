@@ -56,11 +56,7 @@ export const Collab = createExtension<CollabOptions>({
               ynodes.delete(step.id)
               break
             }
-            case 'updateNode':
-            case 'updateTitle':
-            case 'updateStyle':
-            case 'toggleFold':
-            case 'setStructureClass': {
+            case 'updateNode': {
               const node = tr.doc.getNodeById(step.id)
               if (node) {
                 ynodes.set(node.id, topicDataToYMap(node.toData()))

@@ -8,11 +8,7 @@ export type StepType =
   | "updateNode"
   | "moveNode"
   | "setSelection"
-  | "setDoc"
-  | "updateTitle"
-  | "updateStyle"
-  | "toggleFold"
-  | "setStructureClass";
+  | "setDoc";
 
 export interface Step {
   type: StepType;

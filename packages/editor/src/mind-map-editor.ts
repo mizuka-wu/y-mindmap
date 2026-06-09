@@ -480,11 +480,7 @@ export class MindMapEditor {
             nodes.delete(step.id);
             break;
           }
-          case "updateNode":
-          case "updateTitle":
-          case "updateStyle":
-          case "toggleFold":
-          case "setStructureClass": {
+          case "updateNode": {
             const node = tr.doc.getNodeById(step.id);
             if (node) {
               nodes.set(node.id, topicDataToYMap(node.toData()));
