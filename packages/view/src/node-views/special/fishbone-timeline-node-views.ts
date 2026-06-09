@@ -431,6 +431,20 @@ export class TimelineMainLineNodeView extends NodeView {
   }
 }
 
+export class TimelineLineNodeView extends NodeView {
+  private _length: number = 300
+  private _lineColor: string = '#4A90D9'
+  private _lineWidth: number = 3
+  private _orientation: 'horizontal' | 'vertical' = 'horizontal'
+  private _linePattern: string = 'solid'
+
+  private pathElement: Path | null = null
+  private dots: Path[] = []
+
+  constructor(node: MindMapNode) {
+    super(node)
+  }
+
   protected initialize(): void {
     this.pathElement = new Path({
       path: this.calculatePath(),
