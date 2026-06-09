@@ -1,6 +1,7 @@
 import { Group, Rect, Ellipse, Path, Text } from 'leafer-ui'
 import type { MindMapNode } from '@y-mindmap/state'
 import type { StyleData } from '@y-mindmap/core'
+import { AnimationScheduler, Easing, type AnimationState, type EasingFunction } from '@y-mindmap/layout'
 
 export interface NodeLayout {
   nodeId: string
@@ -335,8 +336,122 @@ export abstract class NodeView {
     return this.getBounds()
   }
   
+  animatePosition(
+    from: Position,
+    to: Position,
+    duration: number = 300,
+    easing: EasingFunction = Easing.easeOut
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      const scheduler = NodeView._sharedScheduler
+      const animId = `${this.nodeId}-position-${Date.now()}`
+      
+      scheduler.startAnimation(animId, 
+        { x: from.x, y: from.y },
+        { x: to.x, y: to.y },
+        {
+          duration,
+          easing,
+          onUpdate: (state) => {
+            this.setPosition({ x: state.x, y: state.y })
+          },
+          onComplete: () => resolve(),
+        }
+      )
+    })
+  }
+
+  animateOpacity(
+    from: number,
+    to: number,
+    duration: number = 200,
+    easing: EasingFunction = Easing.easeOut
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      const scheduler = NodeView._sharedScheduler
+      const animId = `${this.nodeId}-opacity-${Date.now()}`
+      
+      scheduler.startAnimation(animId,
+        { opacity: from },
+        { opacity: to },
+        {
+          duration,
+          easing,
+          onUpdate: (state) => {
+            this.setOpacity(state.opacity)
+          },
+          onComplete: () => resolve(),
+        }
+      )
+    })
+  }
+
+  animateScale(
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+    duration: number = 200,
+    easing: EasingFunction = Easing.easeOut
+  ): Promise<void> {
+    return new Promise((resolve) => {
+      const scheduler = NodeView._sharedScheduler
+      const animId = `${this.nodeId}-scale-${Date.now()}`
+      
+      scheduler.startAnimation(animId,
+        { scaleX: from.x, scaleY: from.y },
+        { scaleX: to.x, scaleY: to.y },
+        {
+          duration,
+          easing,
+          onUpdate: (state) => {
+            this.group.scaleX = state.scaleX
+            this.group.scaleY = state.scaleY
+          },
+          onComplete: () => resolve(),
+        }
+      )
+    })
+  }
+
+  animateCollapse(duration: number = 200): Promise<void> {
+    return new Promise(async (resolve) => {
+      await Promise.all([
+        this.animateScale({ x: 1, y: 1 }, { x: 0, y: 0 }, duration, Easing.easeIn),
+        this.animateOpacity(1, 0, duration, Easing.easeIn),
+      ])
+      this.setVisible(false)
+      this.group.scaleX = 1
+      this.group.scaleY = 1
+      resolve()
+    })
+  }
+
+  animateExpand(duration: number = 200): Promise<void> {
+    return new Promise(async (resolve) => {
+      this.setVisible(true)
+      this.group.scaleX = 0
+      this.group.scaleY = 0
+      this.setOpacity(0)
+      
+      await Promise.all([
+        this.animateScale({ x: 0, y: 0 }, { x: 1, y: 1 }, duration, Easing.easeOut),
+        this.animateOpacity(0, 1, duration, Easing.easeOut),
+      ])
+      resolve()
+    })
+  }
+
+  cancelAnimations(): void {
+    const scheduler = NodeView._sharedScheduler
+    const animIds = scheduler.getAnimatingIds().filter(id => id.startsWith(this.nodeId))
+    for (const id of animIds) {
+      scheduler.cancelAnimation(id)
+    }
+  }
+
   destroy(): void {
     if (this._isDisposed) return
+    
+    this.cancelAnimations()
     
     for (const child of [...this._children]) {
       child.destroy()
@@ -350,6 +465,8 @@ export abstract class NodeView {
     this.group.remove()
     this._isDisposed = true
   }
+
+  private static _sharedScheduler: AnimationScheduler = new AnimationScheduler()
 }
 
 export default NodeView

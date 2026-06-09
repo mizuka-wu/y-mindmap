@@ -6,8 +6,24 @@ import { StyleKey, DEFAULT_CONNECTION_STYLE, TopicType } from '@y-mindmap/core'
 import { BoundaryNodeView } from './boundary-node-view'
 import { SummaryNodeView } from './summary-node-view'
 import { ConnectionNodeView } from '../connection-node-view'
+import { Easing, type EasingFunction } from '@y-mindmap/layout'
 
 export type ChildType = 'attached' | 'detached' | 'summary' | 'callout'
+
+export interface CollapseExpandConfig {
+  duration: number
+  easing: EasingFunction
+}
+
+const DEFAULT_COLLAPSE_CONFIG: CollapseExpandConfig = {
+  duration: 200,
+  easing: Easing.easeIn,
+}
+
+const DEFAULT_EXPAND_CONFIG: CollapseExpandConfig = {
+  duration: 200,
+  easing: Easing.easeOut,
+}
 
 export class BranchNodeView extends NodeView {
   private _structureClass: string = 'map'
@@ -166,11 +182,37 @@ export class BranchNodeView extends NodeView {
     return this._isCollapsed
   }
 
-  setCollapsed(collapsed: boolean): void {
+  async setCollapsed(collapsed: boolean, animate: boolean = true): Promise<void> {
     if (this._isCollapsed === collapsed) return
     this._isCollapsed = collapsed
-    this._updateChildrenVisibility()
+    
+    if (animate) {
+      await this._animateCollapseExpand(collapsed)
+    } else {
+      this._updateChildrenVisibility()
+    }
     this.invalidateLayout()
+  }
+
+  private async _animateCollapseExpand(collapsed: boolean): Promise<void> {
+    const allChildren = this.getAllChildren()
+    const config = collapsed ? DEFAULT_COLLAPSE_CONFIG : DEFAULT_EXPAND_CONFIG
+    
+    const animations: Promise<void>[] = []
+    
+    for (const child of allChildren) {
+      if (collapsed) {
+        animations.push(child.animateCollapse(config.duration))
+      } else {
+        animations.push(child.animateExpand(config.duration))
+      }
+    }
+    
+    await Promise.all(animations)
+    
+    if (!collapsed) {
+      this._updateChildrenVisibility()
+    }
   }
 
   isCentralBranch(): boolean {
@@ -243,30 +285,6 @@ export class BranchNodeView extends NodeView {
   setDirection(direction: 'right' | 'left' | 'both'): void {
     if (this._direction === direction) return
     this._direction = direction
-    this.invalidateLayout()
-  }
-
-  addChildBranch(child: BranchNodeView, type: ChildType = 'attached'): void {
-    const list = this._getChildList(type)
-    if (list.includes(child)) return
-
-    child.setParent(this)
-    list.push(child)
-    this.group.add(child.group)
-
-    this._setupChildBoundsListener(child)
-    this.invalidateLayout()
-  }
-
-  removeChildBranch(child: BranchNodeView, type: ChildType): void {
-    const list = this._getChildList(type)
-    const index = list.indexOf(child)
-    if (index === -1) return
-
-    child.setParent(null)
-    list.splice(index, 1)
-    child.group.remove()
-
     this.invalidateLayout()
   }
 
@@ -431,7 +449,43 @@ export class BranchNodeView extends NodeView {
   }
 
   private _handleChangeBranch(data: { collapsed: boolean }): void {
-    this.setCollapsed(data.collapsed)
+    this.setCollapsed(data.collapsed, true)
+  }
+
+  addChildBranch(child: BranchNodeView, type: ChildType = 'attached', animate: boolean = false): void {
+    const list = this._getChildList(type)
+    if (list.includes(child)) return
+
+    child.setParent(this)
+    list.push(child)
+    this.group.add(child.group)
+
+    this._setupChildBoundsListener(child)
+    
+    if (animate) {
+      child.animateExpand(200)
+    }
+    
+    this.invalidateLayout()
+  }
+
+  removeChildBranch(child: BranchNodeView, type: ChildType, animate: boolean = false): void {
+    const list = this._getChildList(type)
+    const index = list.indexOf(child)
+    if (index === -1) return
+
+    const doRemove = () => {
+      child.setParent(null)
+      list.splice(index, 1)
+      child.group.remove()
+      this.invalidateLayout()
+    }
+
+    if (animate) {
+      child.animateCollapse(200).then(doRemove)
+    } else {
+      doRemove()
+    }
   }
 
   destroy(): void {

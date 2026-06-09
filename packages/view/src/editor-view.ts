@@ -2,7 +2,7 @@ import { App, Leafer, Group } from 'leafer-ui'
 import { EditorState, MindMapDocument, MindMapNode, Transaction, Selection } from '@y-mindmap/state'
 import type { RelationshipData } from '@y-mindmap/state'
 import type { ConnectionLayout } from '@y-mindmap/layout'
-import { MapLayoutEngine, type LayoutEngine, type LayoutResult } from '@y-mindmap/layout'
+import { MapLayoutEngine, AnimatedLayoutEngine, type LayoutEngine, type LayoutResult } from '@y-mindmap/layout'
 import { NodeViewFactory } from './node-views/node-view-factory'
 import { TopicNodeView } from './node-views/topic-node-view'
 import { BranchNodeView } from './node-views/containers/branch-node-view'
@@ -16,12 +16,17 @@ export interface EditorViewConfig {
   container: HTMLElement
   state?: EditorState
   layoutEngine?: LayoutEngine
+  enableAnimations?: boolean
+  animationDuration?: number
 }
 
 export class EditorView {
   private app: App
   private nodeViewFactory: NodeViewFactory
   private layoutEngine: LayoutEngine
+  private animatedLayoutEngine: AnimatedLayoutEngine | null = null
+  private enableAnimations: boolean
+  private animationDuration: number
   
   private topicLayer: Leafer
   private connectionLayer: Leafer
@@ -38,13 +43,24 @@ export class EditorView {
   private _updateScheduled: boolean = false
   private _isUpdating: boolean = false
   private _pendingDirtyNodeIds: Set<string> = new Set()
+  private _isAnimating: boolean = false
   
   private _themeUnsubscribe: (() => void) | null = null
   
   constructor(config: EditorViewConfig) {
     this.container = config.container
     this.layoutEngine = config.layoutEngine || new MapLayoutEngine()
+    this.enableAnimations = config.enableAnimations ?? true
+    this.animationDuration = config.animationDuration ?? 300
     this.nodeViewFactory = new NodeViewFactory()
+    
+    if (this.enableAnimations) {
+      this.animatedLayoutEngine = new AnimatedLayoutEngine(this.layoutEngine, {
+        duration: this.animationDuration,
+        easing: 'ease-out',
+        stagger: 30,
+      })
+    }
     
     this.app = new App({
       view: config.container,
@@ -160,13 +176,33 @@ export class EditorView {
       const dirtyNodeIds = this._rootView!.collectDirtyNodeIds()
       
       if (dirtyNodeIds.size > 0) {
-        const layoutResult = this.layoutEngine.calculate(root, undefined, dirtyNodeIds)
-        this.applyLayoutToViews(root, layoutResult)
+        if (this.animatedLayoutEngine && this.enableAnimations) {
+          const layoutResult = this.animatedLayoutEngine.calculateAnimated(
+            root,
+            (nodeId, position) => {
+              const view = this.nodeViewFactory.getTopicView(nodeId)
+              if (view) {
+                view.setPosition(position)
+              }
+            },
+            () => {
+              this._isAnimating = false
+              this.updateConnectionViews()
+            }
+          )
+          this._isAnimating = true
+          this.applyLayoutToViews(root, layoutResult)
+        } else {
+          const layoutResult = this.layoutEngine.calculate(root, undefined, dirtyNodeIds)
+          this.applyLayoutToViews(root, layoutResult)
+        }
       }
       
       this.validateLayoutViews(root)
       this.validatePaintViews(root)
-      this.updateConnectionViews()
+      if (!this._isAnimating) {
+        this.updateConnectionViews()
+      }
       this.updateRelationshipViews()
       this.updateSelection()
       

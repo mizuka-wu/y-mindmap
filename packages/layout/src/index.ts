@@ -12,6 +12,9 @@ export { LayoutAnimator } from './layout-animator'
 export { LayoutCache } from './layout-cache'
 export { LayoutTransition, AnimatedLayoutEngine } from './layout-transition'
 
+export { AnimationScheduler, animationScheduler, Easing } from './animation-scheduler'
+export type { AnimationState, AnimationConfig as SchedulerAnimationConfig, EasingFunction } from './animation-scheduler'
+
 export type { AnimationConfig, AnimationTarget } from './layout-animator'
 export type { CacheEntry } from './layout-cache'
 export type { LayoutTransitionConfig, NodeAnimation } from './layout-transition'

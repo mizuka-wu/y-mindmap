@@ -30,7 +30,7 @@ export { LabelNodeView, LabelsNodeView } from './node-views/components/label-nod
 export { MathJaxNodeView } from './node-views/components/mathjax-node-view'
 
 export { BranchNodeView } from './node-views/containers/branch-node-view'
-export type { ChildType } from './node-views/containers/branch-node-view'
+export type { ChildType, CollapseExpandConfig } from './node-views/containers/branch-node-view'
 export { BoundaryNodeView } from './node-views/containers/boundary-node-view'
 export { SummaryNodeView } from './node-views/containers/summary-node-view'
 
