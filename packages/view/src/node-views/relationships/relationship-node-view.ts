@@ -120,32 +120,39 @@ export class RelationshipNodeView extends NodeView {
 
 export class RelationshipTitleNodeView extends NodeView {
   private _text: string
+  private _isDefaultTitle: boolean = false
   private _textColor: string = '#666666'
+  private _defaultTextColor: string = '#999999'
   private _fontSize: number = 12
   
   private textElement: Text | null = null
 
   constructor(node: MindMapNode, text: string) {
     super(node)
-    this._text = text
+    this._text = text || ''
+    this._isDefaultTitle = !text
   }
 
   protected initialize(): void {
+    const displayText = this._text || 'Relationship'
+    this._isDefaultTitle = !this._text
+    
     this.textElement = new Text({
-      text: this._text,
+      text: displayText,
       fontSize: this._fontSize,
-      fill: this._textColor,
+      fill: this._isDefaultTitle ? this._defaultTextColor : this._textColor,
       textAlign: 'center',
       verticalAlign: 'middle',
-    })
+      })
     this.group.add(this.textElement)
   }
 
   protected calculatePreferredSize(): Size {
     if (!this.textElement) return { width: 0, height: 0 }
     
+    const displayText = this._text || 'Relationship'
     return {
-      width: this.textElement.width || this._text.length * 7,
+      width: this.textElement.width || displayText.length * 7,
       height: this.textElement.height || 16,
     }
   }
@@ -159,7 +166,7 @@ export class RelationshipTitleNodeView extends NodeView {
 
   protected applyPaint(): void {
     if (this.textElement) {
-      this.textElement.fill = this._textColor
+      this.textElement.fill = this._isDefaultTitle ? this._defaultTextColor : this._textColor
       this.textElement.fontSize = this._fontSize
     }
   }
@@ -172,11 +179,19 @@ export class RelationshipTitleNodeView extends NodeView {
     return this._text
   }
 
+  isDefaultTitle(): boolean {
+    return this._isDefaultTitle
+  }
+
   setText(text: string): void {
-    if (this._text === text) return
+    const isEmpty = !text || text.trim() === ''
     this._text = text
+    this._isDefaultTitle = isEmpty
+    
     if (this.textElement) {
-      this.textElement.text = text
+      this.textElement.text = isEmpty ? 'Relationship' : text
+      this.textElement.fill = isEmpty ? this._defaultTextColor : this._textColor
+
     }
     this.invalidateLayout()
   }
@@ -184,6 +199,12 @@ export class RelationshipTitleNodeView extends NodeView {
   setTextColor(color: string): void {
     if (this._textColor === color) return
     this._textColor = color
+    this.invalidatePaint()
+  }
+
+  setDefaultTextColor(color: string): void {
+    if (this._defaultTextColor === color) return
+    this._defaultTextColor = color
     this.invalidatePaint()
   }
 

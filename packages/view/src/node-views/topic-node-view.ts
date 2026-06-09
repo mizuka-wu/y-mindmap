@@ -1,7 +1,7 @@
 import { Group, Rect, Ellipse, Path, Text } from 'leafer-ui'
 import type { MindMapNode } from '@y-mindmap/state'
 import { StyleKey, DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
-import type { StyleData, MarkerData } from '@y-mindmap/core'
+import type { StyleData, MarkerData, GradientData, PatternData } from '@y-mindmap/core'
 import { NodeView, Size, Bounds } from '../core/node-view'
 import { styleManager } from '../core/style-manager'
 import { ShapeFactory } from '../shapes/shape-factory'
@@ -57,8 +57,11 @@ export class TopicNodeView extends NodeView {
     const titleSize = this.measureText(this._node.title, fontSize, fontFamily)
     const padding = this.getShapePadding()
     
+    const preferredWidth = titleSize.width + padding.left + padding.right
+    const customWidth = (this._node as any).customWidth
+    
     return {
-      width: titleSize.width + padding.left + padding.right,
+      width: customWidth && customWidth > 0 ? customWidth : preferredWidth,
       height: titleSize.height + padding.top + padding.bottom,
     }
   }
@@ -111,9 +114,23 @@ export class TopicNodeView extends NodeView {
     const fillColor = styleManager.getStyleValueOrDefault(this, StyleKey.FILL_COLOR, DEFAULT_TOPIC_STYLE.fillColor)
     const borderColor = styleManager.getStyleValueOrDefault(this, StyleKey.BORDER_COLOR, DEFAULT_TOPIC_STYLE.borderColor)
     const borderWidth = styleManager.getStyleValueOrDefault(this, StyleKey.BORDER_WIDTH, DEFAULT_TOPIC_STYLE.borderWidth)
+    const fillPattern = styleManager.getStyleValue(this, StyleKey.FILL_PATTERN) as PatternData | undefined
+    const fillGradient = styleManager.getStyleValue(this, StyleKey.FILL_GRADIENT) as GradientData | undefined
+    const visualFillColor = styleManager.computeVisualFillColor(this)
     
     if (this.shape instanceof Rect || this.shape instanceof Ellipse || this.shape instanceof Path) {
-      this.shape.fill = fillColor
+      if (fillPattern && fillPattern.src) {
+        this.shape.setAttr('fill', {
+          type: 'image',
+          url: fillPattern.src,
+          mode: fillPattern.repeat || 'repeat',
+        })
+      } else if (fillGradient) {
+        this.shape.fill = this.createGradientFill(fillGradient)
+      } else {
+        this.shape.fill = visualFillColor || fillColor
+      }
+      
       this.shape.stroke = borderColor
       this.shape.strokeWidth = borderWidth
     }
@@ -123,6 +140,31 @@ export class TopicNodeView extends NodeView {
     } else {
       this.hideSelectBox()
     }
+  }
+  
+  private createGradientFill(gradient: GradientData): any {
+    if (gradient.type === 'linear') {
+      const angle = gradient.angle || 0
+      const rad = (angle * Math.PI) / 180
+      return {
+        type: 'linear',
+        from: { x: 0.5 - Math.cos(rad) * 0.5, y: 0.5 - Math.sin(rad) * 0.5 },
+        to: { x: 0.5 + Math.cos(rad) * 0.5, y: 0.5 + Math.sin(rad) * 0.5 },
+        stops: gradient.stops.map(stop => ({
+          offset: stop.offset,
+          color: stop.color,
+        })),
+      }
+    } else if (gradient.type === 'radial') {
+      return {
+        type: 'radial',
+        stops: gradient.stops.map(stop => ({
+          offset: stop.offset,
+          color: stop.color,
+        })),
+      }
+    }
+    return gradient.stops[0]?.color || '#000000'
   }
   
   protected updateStyle(): void {
@@ -144,8 +186,18 @@ export class TopicNodeView extends NodeView {
     const hasImage = !!this._node.image
     const titleHeight = hasImage ? this._size.height - 80 : this._size.height
     const textColor = styleManager.getStyleValueOrDefault(this, StyleKey.TEXT_COLOR, DEFAULT_TOPIC_STYLE.textColor)
+    const textTransform = styleManager.getStyleValueOrDefault(this, StyleKey.TEXT_TRANSFORM, DEFAULT_TOPIC_STYLE.textTransform)
     
-    return createWrappedText(this._node.title, {
+    let displayText = this._node.title
+    if (textTransform === 'uppercase') {
+      displayText = displayText.toUpperCase()
+    } else if (textTransform === 'lowercase') {
+      displayText = displayText.toLowerCase()
+    } else if (textTransform === 'capitalize') {
+      displayText = displayText.replace(/\b\w/g, char => char.toUpperCase())
+    }
+    
+    return createWrappedText(displayText, {
       x: 0,
       y: 0,
       width: this._size.width,

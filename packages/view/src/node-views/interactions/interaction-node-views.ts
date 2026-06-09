@@ -2,7 +2,16 @@ import { Rect, Path } from 'leafer-ui'
 import { NodeView, Size } from '../../core/node-view'
 import type { MindMapNode } from '@y-mindmap/state'
 
+export enum SelectBoxState {
+  HIDDEN = 'hidden',
+  HOVER = 'hover',
+  ACTIVE = 'active',
+  DEFOCUS = 'defocus',
+  INTERSECT = 'intersect',
+}
+
 export class SelectBoxNodeView extends NodeView {
+  private _state: SelectBoxState = SelectBoxState.HIDDEN
   private _strokeColor: string = '#4A90D9'
   private _strokeWidth: number = 2
   private _cornerRadius: number = 8
@@ -43,26 +52,83 @@ export class SelectBoxNodeView extends NodeView {
   }
 
   protected applyPaint(): void {
-    if (this.selectBoxElement) {
-      this.selectBoxElement.stroke = this._strokeColor
-      this.selectBoxElement.strokeWidth = this._strokeWidth
-      this.selectBoxElement.cornerRadius = this._cornerRadius
+    if (!this.selectBoxElement) return
+    
+    switch (this._state) {
+      case SelectBoxState.HOVER:
+        this.selectBoxElement.stroke = '#2ebdff'
+        this.selectBoxElement.strokeWidth = this._strokeWidth
+        this.selectBoxElement.opacity = 0.5
+        this.selectBoxElement.fill = 'none'
+        break
+      case SelectBoxState.ACTIVE:
+        this.selectBoxElement.stroke = '#2ebdff'
+        this.selectBoxElement.strokeWidth = this._strokeWidth
+        this.selectBoxElement.opacity = 1
+        this.selectBoxElement.fill = 'none'
+        break
+      case SelectBoxState.DEFOCUS:
+        this.selectBoxElement.stroke = '#9f9f9f'
+        this.selectBoxElement.strokeWidth = this._strokeWidth
+        this.selectBoxElement.opacity = 1
+        this.selectBoxElement.fill = 'none'
+        break
+      case SelectBoxState.INTERSECT:
+        this.selectBoxElement.stroke = '#2ebdff'
+        this.selectBoxElement.strokeWidth = this._strokeWidth
+        this.selectBoxElement.opacity = 1
+        this.selectBoxElement.fill = 'none'
+        break
+      default:
+        this.selectBoxElement.stroke = this._strokeColor
+        this.selectBoxElement.strokeWidth = this._strokeWidth
+        this.selectBoxElement.opacity = 1
+        this.selectBoxElement.fill = 'none'
+        break
     }
+    
+    this.selectBoxElement.cornerRadius = this._cornerRadius
   }
 
   protected updateStyle(): void {
     this.invalidatePaint()
   }
 
-  show(): void {
-    this._isVisible = true
-    this.group.visible = true
+  getState(): SelectBoxState {
+    return this._state
+  }
+
+  setState(state: SelectBoxState): void {
+    if (this._state === state) return
+    
+    this._state = state
+    this._isVisible = state !== SelectBoxState.HIDDEN
+    this.group.visible = this._isVisible
     this.invalidatePaint()
   }
 
+  show(): void {
+    this.setState(SelectBoxState.HOVER)
+  }
+
   hide(): void {
-    this._isVisible = false
-    this.group.visible = false
+    this.setState(SelectBoxState.HIDDEN)
+  }
+
+  hover(): void {
+    this.setState(SelectBoxState.HOVER)
+  }
+
+  active(): void {
+    this.setState(SelectBoxState.ACTIVE)
+  }
+
+  defocus(): void {
+    this.setState(SelectBoxState.DEFOCUS)
+  }
+
+  intersect(): void {
+    this.setState(SelectBoxState.INTERSECT)
   }
 
   setStrokeColor(color: string): void {

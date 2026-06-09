@@ -2,10 +2,13 @@ import { StyleKey, DEFAULT_TOPIC_STYLE, DEFAULT_CONNECTION_STYLE } from '@y-mind
 import type { NodeView } from './node-view'
 import type { TopicNodeView } from '../node-views/topic-node-view'
 
-// Style inheritance (matching Snowbrush):
-// - If parent is BranchNodeView → read from parent's node
-// - If parent is TopicNodeView → read from parent's node (temp hierarchy)
-// - BranchNodeView reads from own node
+interface RGBA {
+  r: number
+  g: number
+  b: number
+  a: number
+}
+
 export class StyleManager {
   private static instance: StyleManager
 
@@ -84,6 +87,83 @@ export class StyleManager {
       'line-tapered': DEFAULT_CONNECTION_STYLE.tapered,
     }
     return defaults[key]
+  }
+
+  computeVisualFillColor(nodeView: NodeView, backgroundColor: string = '#ffffff'): string | undefined {
+    const fillColor = this.getStyleValue(nodeView, StyleKey.FILL_COLOR)
+    if (!fillColor || fillColor === 'none') {
+      return undefined
+    }
+
+    const rgba = this.parseColor(fillColor)
+    if (!rgba) {
+      return fillColor
+    }
+
+    if (rgba.a >= 1) {
+      return fillColor
+    }
+
+    const bg = this.parseColor(backgroundColor) || { r: 255, g: 255, b: 255, a: 1 }
+    const blended = this.blendColors(rgba, bg)
+    return this.toHexColor(blended)
+  }
+
+  private parseColor(color: string): RGBA | null {
+    if (!color) return null
+
+    if (color.startsWith('#')) {
+      const hex = color.slice(1)
+      if (hex.length === 3) {
+        return {
+          r: parseInt((hex[0] || "0") + (hex[0] || "0"), 16),
+          g: parseInt((hex[1] || "0") + (hex[1] || "0"), 16),
+          b: parseInt((hex[2] || "0") + (hex[2] || "0"), 16),
+          a: 1,
+        }
+      } else if (hex.length === 6) {
+        return {
+          r: parseInt(hex.slice(0, 2) || "0", 16),
+          g: parseInt(hex.slice(2, 4) || "0", 16),
+          b: parseInt(hex.slice(4, 6) || "0", 16),
+          a: 1,
+        }
+      } else if (hex.length === 8) {
+        return {
+          r: parseInt(hex.slice(0, 2) || "0", 16),
+          g: parseInt(hex.slice(2, 4) || "0", 16),
+          b: parseInt(hex.slice(4, 6) || "0", 16),
+          a: parseInt(hex.slice(6, 8) || "ff", 16) / 255,
+        }
+      }
+    }
+
+    const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/)
+    if (rgbaMatch) {
+      return {
+        r: parseInt(rgbaMatch[1] || "0"),
+        g: parseInt(rgbaMatch[2] || "0"),
+        b: parseInt(rgbaMatch[3] || "0"),
+        a: rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1,
+      }
+    }
+
+    return null
+  }
+
+  private blendColors(fg: RGBA, bg: RGBA): RGBA {
+    const a = fg.a
+    return {
+      r: Math.round(fg.r * a + bg.r * (1 - a)),
+      g: Math.round(fg.g * a + bg.g * (1 - a)),
+      b: Math.round(fg.b * a + bg.b * (1 - a)),
+      a: 1,
+    }
+  }
+
+  private toHexColor(color: RGBA): string {
+    const toHex = (n: number) => n.toString(16).padStart(2, '0')
+    return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`
   }
 }
 
