@@ -29,6 +29,13 @@ export interface EditorViewConfig {
   showZoomControls?: boolean
   zoomControlsConfig?: ZoomControlsConfig
   getPluginMenuItems?: () => Array<{id: string, label: string, icon?: string, shortcut?: string, action: () => void}>
+  enableContextMenu?: boolean
+  enableDragDrop?: boolean
+  enableBoxSelect?: boolean
+  enableRichTextEdit?: boolean
+  enableFormatToolbar?: boolean
+  enableMiniMap?: boolean
+  enableZoomControls?: boolean
 }
 
 export class EditorView {
@@ -90,6 +97,12 @@ export class EditorView {
   private _zoomControlsContainer: HTMLElement | null = null
   private _getPluginMenuItems: (() => Array<{id: string, label: string, icon?: string, shortcut?: string, action: () => void}>) | null = null
   
+  private _enableContextMenu: boolean = true
+  private _enableDragDrop: boolean = true
+  private _enableBoxSelect: boolean = true
+  private _enableRichTextEdit: boolean = true
+  private _enableFormatToolbar: boolean = true
+  
   constructor(config: EditorViewConfig) {
     this.container = config.container
     this.layoutEngine = config.layoutEngine || new MapLayoutEngine()
@@ -98,6 +111,12 @@ export class EditorView {
     this.nodeViewFactory = new NodeViewFactory()
     this._onTitleUpdate = config.onTitleUpdate ?? null
     this._getPluginMenuItems = config.getPluginMenuItems ?? null
+    
+    this._enableContextMenu = config.enableContextMenu ?? true
+    this._enableDragDrop = config.enableDragDrop ?? true
+    this._enableBoxSelect = config.enableBoxSelect ?? true
+    this._enableRichTextEdit = config.enableRichTextEdit ?? true
+    this._enableFormatToolbar = config.enableFormatToolbar ?? true
     
     if (this.enableAnimations) {
       this.animatedLayoutEngine = new AnimatedLayoutEngine(this.layoutEngine, {
@@ -120,13 +139,35 @@ export class EditorView {
       this._refreshAllColorStyles()
     })
     
-    this.initDragHandling()
+    this.initPointerHandling()
     
-    if (config.showMiniMap !== false) {
+    if (this._enableContextMenu) {
+      this.initContextMenu()
+    }
+    
+    if (this._enableDragDrop) {
+      this.initDragDrop()
+    }
+    
+    if (this._enableBoxSelect) {
+      this.initBoxSelect()
+    }
+    
+    if (this._enableRichTextEdit) {
+      this.initRichTextEdit()
+    }
+    
+    if (this._enableFormatToolbar) {
+      this.initFormatToolbar()
+    }
+    
+    const showMiniMap = config.enableMiniMap ?? config.showMiniMap ?? false
+    if (showMiniMap) {
       this._createMiniMap(config.miniMapConfig)
     }
     
-    if (config.showZoomControls !== false) {
+    const showZoomControls = config.enableZoomControls ?? config.showZoomControls ?? false
+    if (showZoomControls) {
       this._createZoomControls(config.zoomControlsConfig)
     }
     
@@ -605,12 +646,74 @@ export class EditorView {
     return { x: worldX, y: worldY }
   }
 
-  // ── Drag Handling ──
+  // ── Feature Initialization ──
 
-  private initDragHandling(): void {
+  private initPointerHandling(): void {
     this.container.addEventListener('pointerdown', this._onPointerDown)
-    this.container.addEventListener('dblclick', this._onDblClick)
+  }
+
+  private destroyPointerHandling(): void {
+    this.container.removeEventListener('pointerdown', this._onPointerDown)
+    document.removeEventListener('pointermove', this._onPointerMove)
+    document.removeEventListener('pointerup', this._onPointerUp)
+    document.removeEventListener('pointermove', this._onBoxSelectMove)
+    document.removeEventListener('pointerup', this._onBoxSelectUp)
+  }
+
+  initContextMenu(): void {
     this.container.addEventListener('contextmenu', this._onContextMenu)
+  }
+
+  destroyContextMenu(): void {
+    this.container.removeEventListener('contextmenu', this._onContextMenu)
+    this._hideContextMenu()
+  }
+
+  initDragDrop(): void {
+    // Drag handling is integrated into _onPointerDown
+  }
+
+  destroyDragDrop(): void {
+    this._cleanupDragVisuals()
+    this._isDragging = false
+    this._dragSourceId = null
+    this._dragStartPosition = null
+  }
+
+  initBoxSelect(): void {
+    // Box select handling is integrated into _onPointerDown
+  }
+
+  destroyBoxSelect(): void {
+    this._restoreAllNodesVisibility()
+    this._boxSelectStartPoint = null
+    this._isBoxSelecting = false
+    if (this._boxSelectRect) {
+      this._boxSelectRect.remove()
+      this._boxSelectRect = null
+    }
+  }
+
+  initRichTextEdit(): void {
+    this.container.addEventListener('dblclick', this._onDblClick)
+  }
+
+  destroyRichTextEdit(): void {
+    this.container.removeEventListener('dblclick', this._onDblClick)
+    if (this._editingNodeId) {
+      this.stopEditing(false)
+    }
+  }
+
+  initFormatToolbar(): void {
+    // Format toolbar is created in _createEditOverlay
+  }
+
+  destroyFormatToolbar(): void {
+    if (this._editToolbar) {
+      this._editToolbar.remove()
+      this._editToolbar = null
+    }
   }
 
   private _onPointerDown = (e: PointerEvent): void => {
@@ -638,6 +741,8 @@ export class EditorView {
         return
       }
 
+      if (!this._enableDragDrop) return
+
       const node = this.state.doc.getNodeById(nodeId)
       if (!node || node.isRoot) return
 
@@ -662,6 +767,8 @@ export class EditorView {
       document.addEventListener('pointermove', this._onPointerMove)
       document.addEventListener('pointerup', this._onPointerUp)
     } else {
+      if (!this._enableBoxSelect) return
+
       this._boxSelectStartPoint = { ...worldPoint }
       this._isBoxSelecting = false
 
@@ -684,6 +791,7 @@ export class EditorView {
   }
 
   private _onDblClick = (e: MouseEvent): void => {
+    if (!this._enableRichTextEdit) return
     if (!this.state) return
 
     const worldPoint = this._clientToWorld(e.clientX, e.clientY)
@@ -884,6 +992,7 @@ export class EditorView {
   }
 
   private _onContextMenu = (e: MouseEvent): void => {
+    if (!this._enableContextMenu) return
     e.preventDefault()
     if (!this.state) return
 
@@ -1067,29 +1176,6 @@ export class EditorView {
     }
   }
 
-  private _cleanupDrag(): void {
-    this.container.removeEventListener('pointerdown', this._onPointerDown)
-    this.container.removeEventListener('dblclick', this._onDblClick)
-    this.container.removeEventListener('contextmenu', this._onContextMenu)
-    document.removeEventListener('pointermove', this._onPointerMove)
-    document.removeEventListener('pointerup', this._onPointerUp)
-    document.removeEventListener('pointermove', this._onBoxSelectMove)
-    document.removeEventListener('pointerup', this._onBoxSelectUp)
-    this._cleanupDragVisuals()
-    this._hideContextMenu()
-    this._isDragging = false
-    this._dragSourceId = null
-    this._dragStartPosition = null
-    this._pointerMoveHandler = null
-    this._pointerUpHandler = null
-    this._boxSelectStartPoint = null
-    this._isBoxSelecting = false
-    if (this._boxSelectRect) {
-      this._boxSelectRect.remove()
-      this._boxSelectRect = null
-    }
-  }
-
   // ── Hit Testing ──
 
   hitTest(worldPoint: Point, sourceId: string): DropTarget | null {
@@ -1247,9 +1333,11 @@ export class EditorView {
     const screenWidth = titleBounds.width * this.app.zoom
     const screenHeight = titleBounds.height * this.app.zoom
 
-    const toolbar = this._createFormatToolbar(screenX, screenY - 36)
-    this.container.appendChild(toolbar)
-    this._editToolbar = toolbar
+    if (this._enableFormatToolbar) {
+      const toolbar = this._createFormatToolbar(screenX, screenY - 36)
+      this.container.appendChild(toolbar)
+      this._editToolbar = toolbar
+    }
 
     const overlay = document.createElement('div')
     overlay.className = 'y-mindmap-edit-overlay'
@@ -1503,11 +1591,12 @@ export class EditorView {
   // ── Lifecycle ──
 
   destroy(): void {
-    this._cleanupDrag()
-
-    if (this._editingNodeId) {
-      this.stopEditing(false)
-    }
+    this.destroyPointerHandling()
+    this.destroyContextMenu()
+    this.destroyDragDrop()
+    this.destroyBoxSelect()
+    this.destroyRichTextEdit()
+    this.destroyFormatToolbar()
 
     this._minimap?.destroy()
     this._minimapContainer?.remove()
