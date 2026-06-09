@@ -38,6 +38,7 @@ export class BranchNodeView extends NodeView {
 
   private _initConnectionView(): void {
     this._connectionView = new ConnectionNodeView(this._node)
+    this._connectionView.setParent(this)
     this.group.add(this._connectionView.group)
   }
 

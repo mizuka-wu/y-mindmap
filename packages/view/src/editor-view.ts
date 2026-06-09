@@ -104,6 +104,7 @@ export class EditorView {
           if (branch) {
             branch.refreshColorStyles()
             branch.getTopicView()?.invalidatePaint()
+            branch.invalidateLayout()
           }
           break
         }
@@ -188,7 +189,11 @@ export class EditorView {
           childView.updateNode(child)
         }
 
-        if (!this._branchMap.has(child.id)) {
+        const existingBranch = this._branchMap.get(child.id)
+        if (!existingBranch || existingBranch.isDisposed()) {
+          if (existingBranch) {
+            this._branchMap.delete(child.id)
+          }
           const childBranch = new BranchNodeView(child)
           childBranch.setTopicView(childView)
           parentBranch.addChildBranch(childBranch, 'attached')
