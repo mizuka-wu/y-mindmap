@@ -532,6 +532,7 @@ export class MindMapEditor {
     this.syncTransactionToYDoc(tr);
     this.pluginManager.updateState(this.state);
     this.extensionManager.updateState(this.state);
+    this.extensionManager.emit('transaction', tr);
     this.emitTransactionEvents(tr);
   }
 

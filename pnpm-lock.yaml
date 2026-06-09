@@ -135,6 +135,9 @@ importers:
 
   extensions:
     dependencies:
+      '@y-mindmap/collab':
+        specifier: workspace:*
+        version: link:../packages/collab
       '@y-mindmap/core':
         specifier: workspace:*
         version: link:../packages/core
@@ -147,6 +150,9 @@ importers:
       '@y-mindmap/interaction':
         specifier: workspace:*
         version: link:../packages/interaction
+      '@y-mindmap/state':
+        specifier: workspace:*
+        version: link:../packages/state
       '@y-mindmap/view':
         specifier: workspace:*
         version: link:../packages/view

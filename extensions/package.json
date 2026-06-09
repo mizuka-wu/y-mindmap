@@ -18,6 +18,8 @@
   },
   "dependencies": {
     "@y-mindmap/core": "workspace:*",
+    "@y-mindmap/collab": "workspace:*",
+    "@y-mindmap/state": "workspace:*",
     "@y-mindmap/interaction": "workspace:*",
     "@y-mindmap/formats": "workspace:*",
     "yjs": "^13.6.0",

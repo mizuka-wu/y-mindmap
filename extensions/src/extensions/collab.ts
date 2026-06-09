@@ -1,5 +1,7 @@
 import * as Y from 'yjs'
 import { createExtension } from '@y-mindmap/extension'
+import { syncTopicToY, syncYToTopic, topicDataToYMap } from '@y-mindmap/collab'
+import { MindMapDocument } from '@y-mindmap/state'
 
 export interface CollabOptions {
   ydoc: Y.Doc
@@ -18,23 +20,74 @@ export const Collab = createExtension<CollabOptions>({
   },
 
   setup(ctx, options) {
-    const { ydoc, field, fragment } = options
-    const ymap = fragment || ydoc.getMap(field || 'mindmap')
+    const { ydoc, field } = options
+    const ynodes = ydoc.getMap<Y.Map<any>>('nodes')
+    const yrootId = ydoc.getText('rootId')
 
-    // TODO: 实现双向绑定逻辑
-    // 1. 初始同步：state → Y.Map
-    // 2. 监听 Y.Map 变更 → dispatch Transaction 更新 state
-    // 3. 监听 state 变更 → 写回 Y.Map（在 ydoc.transact() 内）
+    const topic = ctx.state.doc.root.toData()
+    syncTopicToY(ydoc, topic)
 
-    const handleYMapChange = (event: Y.YMapEvent<any>, transaction: Y.Transaction) => {
-      if (transaction.local) return
-      // TODO: 将 Y.Map 变更转换为 Transaction 并 dispatch
+    const handleRemoteUpdate = (_update: Uint8Array, origin: any) => {
+      if (origin === 'editor-dispatch') return
+
+      const remoteTopic = syncYToTopic(ydoc)
+      if (remoteTopic) {
+        const doc = MindMapDocument.fromJSON(remoteTopic)
+        ctx.emit('document:load', doc)
+      }
     }
+    ydoc.on('update', handleRemoteUpdate)
 
-    ymap.observe(handleYMapChange)
+    const handleTransaction = (tr: any) => {
+      ydoc.transact(() => {
+        for (const step of tr.steps) {
+          switch (step.type) {
+            case 'addNode': {
+              const node = tr.doc.getNodeById(step.node.id)
+              if (node) {
+                ynodes.set(node.id, topicDataToYMap(node.toData()))
+              }
+              break
+            }
+            case 'removeNode': {
+              ynodes.delete(step.id)
+              break
+            }
+            case 'updateNode':
+            case 'updateTitle':
+            case 'updateStyle':
+            case 'toggleFold':
+            case 'setStructureClass': {
+              const node = tr.doc.getNodeById(step.id)
+              if (node) {
+                ynodes.set(node.id, topicDataToYMap(node.toData()))
+              }
+              break
+            }
+            case 'moveNode': {
+              const movedNode = tr.doc.getNodeById(step.nodeId)
+              if (movedNode) {
+                ynodes.set(step.nodeId, topicDataToYMap(movedNode.toData()))
+              }
+              const oldParent = tr.beforeDoc.findParent(step.nodeId)
+              if (oldParent) {
+                ynodes.set(oldParent.id, topicDataToYMap(oldParent.toData()))
+              }
+              const newParent = tr.doc.findParent(step.nodeId)
+              if (newParent && newParent.id !== oldParent?.id) {
+                ynodes.set(newParent.id, topicDataToYMap(newParent.toData()))
+              }
+              break
+            }
+          }
+        }
+      }, 'editor-dispatch')
+    }
+    ctx.on('transaction', handleTransaction)
 
     return () => {
-      ymap.unobserve(handleYMapChange)
+      ydoc.off('update', handleRemoteUpdate)
+      ctx.off('transaction', handleTransaction)
     }
   },
 })
