@@ -42,6 +42,7 @@ import {
   createViewportDragHandler,
   createBoxSelectHandler,
   createTextEditHandler,
+  createRichTextEditHandler,
   InlineEditor,
   RichTextInlineEditor,
   InertialScroll,
@@ -162,6 +163,9 @@ export class MindMapEditor {
       state: this.state,
       layoutEngine,
       enableAnimation: true,
+      onTitleUpdate: (nodeId, title) => {
+        this.executeCommand("updateTitle", { nodeId, title });
+      },
     });
 
     this.inlineEditor = new InlineEditor({
@@ -451,7 +455,9 @@ export class MindMapEditor {
 
   isEditing(): boolean {
     return (
-      this.inlineEditor.isEditing() || this.richTextInlineEditor.isEditing()
+      this.view.isEditing() ||
+      this.inlineEditor.isEditing() ||
+      this.richTextInlineEditor.isEditing()
     );
   }
 
@@ -584,6 +590,14 @@ export class MindMapEditor {
     this.interactionManager.addHandler(createMultiSelectHandler());
     this.interactionManager.addHandler(createViewportDragHandler());
     this.interactionManager.addHandler(createBoxSelectHandler());
+    this.interactionManager.addHandler(
+      createRichTextEditHandler({
+        isEditing: () => this.view.isEditing(),
+        getEditingNodeId: () => this.view.getEditingNodeId(),
+        startEditing: (nodeId) => this.view.startEditing(nodeId),
+        stopEditing: (save) => this.view.stopEditing(save),
+      }),
+    );
     this.interactionManager.addHandler(
       createTextEditHandler({
         editor: this.inlineEditor,
@@ -801,6 +815,7 @@ export class MindMapEditor {
   destroy(): void {
     this.pluginManager.destroy();
     this.binding?.destroy();
+    this.view.stopEditing(false);
     this.richTextInlineEditor.dispose();
     this.inlineEditor.dispose();
     this.view.destroy();

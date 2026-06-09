@@ -461,6 +461,37 @@ export class TopicNodeView extends TitleableView {
     }
   }
   
+  getTitleBounds(): { x: number; y: number; width: number; height: number } {
+    const padding = this.getShapePadding()
+    const hasImage = !!this._node.image
+    const titleHeight = hasImage ? this._size.height - 80 : this._size.height
+
+    return {
+      x: padding.left,
+      y: padding.top,
+      width: this._size.width - padding.left - padding.right,
+      height: titleHeight - padding.top - padding.bottom,
+    }
+  }
+
+  getTitleStyle(): {
+    fontSize: number
+    fontFamily: string
+    color: string
+    fontWeight: string | number
+    fontStyle: string
+    textAlign: string
+  } {
+    const fontSize = styleManager.getStyleValueOrDefault(this, StyleKey.FONT_SIZE, 14) as number
+    const fontFamily = styleManager.getStyleValueOrDefault(this, StyleKey.FONT_FAMILY, 'Arial') as string
+    const color = styleManager.getStyleValueOrDefault(this, StyleKey.TEXT_COLOR, DEFAULT_TOPIC_STYLE.textColor) as string
+    const fontWeight = styleManager.getStyleValueOrDefault(this, StyleKey.FONT_WEIGHT, DEFAULT_TOPIC_STYLE.fontWeight)
+    const fontStyle = styleManager.getStyleValueOrDefault(this, StyleKey.FONT_STYLE, DEFAULT_TOPIC_STYLE.fontStyle) as string
+    const textAlign = styleManager.getStyleValueOrDefault(this, StyleKey.TEXT_ALIGN, 'center') as string
+
+    return { fontSize, fontFamily, color, fontWeight, fontStyle, textAlign }
+  }
+
   private getShapePadding(): { top: number; right: number; bottom: number; left: number } {
     const shapeClass = styleManager.getStyleValueOrDefault(this, StyleKey.SHAPE_CLASS, 'roundedRect')
     

@@ -11,6 +11,8 @@ import { RelationshipNodeView, RelationshipTitleNodeView } from './node-views/re
 import { DirtyFlag, Bounds } from './core/node-view'
 import { themeManager, type ThemeChangeListener } from './core/theme-manager'
 import type { ThemeData, Point } from '@y-mindmap/core'
+import { StyleKey, DEFAULT_TOPIC_STYLE } from '@y-mindmap/core'
+import { styleManager } from './core/style-manager'
 import { DragPreviewView, DropIndicatorView, DropPosition, DropTarget } from './node-views/interactions/drag-node-views'
 
 export interface EditorViewConfig {
@@ -19,6 +21,7 @@ export interface EditorViewConfig {
   layoutEngine?: LayoutEngine
   enableAnimations?: boolean
   animationDuration?: number
+  onTitleUpdate?: (nodeId: string, title: string) => void
 }
 
 export class EditorView {
@@ -48,6 +51,12 @@ export class EditorView {
   
   private _themeUnsubscribe: (() => void) | null = null
   
+  private _editingNodeId: string | null = null
+  private _editOverlay: HTMLElement | null = null
+  private _onTitleUpdate: ((nodeId: string, title: string) => void) | null = null
+  private _editKeyDownHandler: ((e: KeyboardEvent) => void) | null = null
+  private _editBlurHandler: ((e: FocusEvent) => void) | null = null
+  
   // Drag handling
   private _dragPreviewView: DragPreviewView | null = null
   private _dropIndicatorView: DropIndicatorView | null = null
@@ -63,6 +72,7 @@ export class EditorView {
     this.enableAnimations = config.enableAnimations ?? true
     this.animationDuration = config.animationDuration ?? 300
     this.nodeViewFactory = new NodeViewFactory()
+    this._onTitleUpdate = config.onTitleUpdate ?? null
     
     if (this.enableAnimations) {
       this.animatedLayoutEngine = new AnimatedLayoutEngine(this.layoutEngine, {
@@ -532,6 +542,7 @@ export class EditorView {
 
   private initDragHandling(): void {
     this.container.addEventListener('pointerdown', this._onPointerDown)
+    this.container.addEventListener('dblclick', this._onDblClick)
   }
 
   private _onPointerDown = (e: PointerEvent): void => {
@@ -567,6 +578,16 @@ export class EditorView {
 
     document.addEventListener('pointermove', this._onPointerMove)
     document.addEventListener('pointerup', this._onPointerUp)
+  }
+
+  private _onDblClick = (e: MouseEvent): void => {
+    if (!this.state) return
+
+    const worldPoint = this._clientToWorld(e.clientX, e.clientY)
+    const nodeId = this.getNodeAtPoint(worldPoint)
+    if (nodeId) {
+      this.startEditing(nodeId)
+    }
   }
 
   private _onPointerMove = (e: PointerEvent): void => {
@@ -680,6 +701,7 @@ export class EditorView {
 
   private _cleanupDrag(): void {
     this.container.removeEventListener('pointerdown', this._onPointerDown)
+    this.container.removeEventListener('dblclick', this._onDblClick)
     document.removeEventListener('pointermove', this._onPointerMove)
     document.removeEventListener('pointerup', this._onPointerUp)
     this._cleanupDragVisuals()
@@ -781,10 +803,144 @@ export class EditorView {
     // Stub - collaboration not implemented yet
   }
 
+  // ── Rich Text Editing ──
+
+  isEditing(): boolean {
+    return this._editingNodeId !== null
+  }
+
+  getEditingNodeId(): string | null {
+    return this._editingNodeId
+  }
+
+  startEditing(nodeId: string): void {
+    if (this._editingNodeId === nodeId) return
+    if (this._editingNodeId) {
+      this.stopEditing(true)
+    }
+
+    const view = this.nodeViewFactory.getTopicView(nodeId)
+    if (!view) return
+
+    this._editingNodeId = nodeId
+    this._createEditOverlay(nodeId, view)
+  }
+
+  stopEditing(save: boolean): void {
+    if (!this._editingNodeId || !this._editOverlay) return
+
+    if (save) {
+      const newText = this._editOverlay.innerText
+      const originalTitle = this.state?.doc.getNodeById(this._editingNodeId)?.title ?? ''
+      if (newText !== originalTitle && this._onTitleUpdate) {
+        this._onTitleUpdate(this._editingNodeId, newText)
+      }
+    }
+
+    this._removeEditOverlay()
+    this._editingNodeId = null
+  }
+
+  private _createEditOverlay(nodeId: string, view: TopicNodeView): void {
+    const titleBounds = view.getTitleBounds()
+    const titleStyle = view.getTitleStyle()
+    const worldBounds = view.getBounds()
+
+    const absX = worldBounds.x + titleBounds.x
+    const absY = worldBounds.y + titleBounds.y
+    const screenX = absX * this.app.zoom + this.app.x
+    const screenY = absY * this.app.zoom + this.app.y
+    const screenWidth = titleBounds.width * this.app.zoom
+    const screenHeight = titleBounds.height * this.app.zoom
+
+    const overlay = document.createElement('div')
+    overlay.className = 'y-mindmap-edit-overlay'
+    overlay.contentEditable = 'true'
+    overlay.setAttribute('spellcheck', 'false')
+
+    const node = this.state?.doc.getNodeById(nodeId)
+    overlay.textContent = node?.title ?? ''
+
+    overlay.style.position = 'absolute'
+    overlay.style.left = `${screenX}px`
+    overlay.style.top = `${screenY}px`
+    overlay.style.width = `${screenWidth}px`
+    overlay.style.minHeight = `${screenHeight}px`
+    overlay.style.fontSize = `${titleStyle.fontSize * this.app.zoom}px`
+    overlay.style.fontFamily = titleStyle.fontFamily
+    overlay.style.color = titleStyle.color
+    overlay.style.fontWeight = String(titleStyle.fontWeight)
+    overlay.style.fontStyle = titleStyle.fontStyle
+    overlay.style.textAlign = titleStyle.textAlign
+    overlay.style.lineHeight = '1.4'
+    overlay.style.padding = '2px 4px'
+    overlay.style.outline = 'none'
+    overlay.style.border = '2px solid #4A90D9'
+    overlay.style.borderRadius = '4px'
+    overlay.style.background = '#fff'
+    overlay.style.zIndex = '10000'
+    overlay.style.boxSizing = 'border-box'
+    overlay.style.overflow = 'hidden'
+    overlay.style.whiteSpace = 'pre-wrap'
+    overlay.style.wordBreak = 'break-word'
+
+    this._editKeyDownHandler = (e: KeyboardEvent) => this._onEditKeyDown(e)
+    this._editBlurHandler = () => this._onEditBlur()
+    overlay.addEventListener('keydown', this._editKeyDownHandler)
+    overlay.addEventListener('blur', this._editBlurHandler)
+
+    this.container.appendChild(overlay)
+    this._editOverlay = overlay
+
+    requestAnimationFrame(() => {
+      overlay.focus()
+      const range = document.createRange()
+      range.selectNodeContents(overlay)
+      range.collapse(false)
+      const sel = window.getSelection()
+      sel?.removeAllRanges()
+      sel?.addRange(range)
+    })
+  }
+
+  private _removeEditOverlay(): void {
+    if (!this._editOverlay) return
+
+    if (this._editKeyDownHandler) {
+      this._editOverlay.removeEventListener('keydown', this._editKeyDownHandler)
+      this._editKeyDownHandler = null
+    }
+    if (this._editBlurHandler) {
+      this._editOverlay.removeEventListener('blur', this._editBlurHandler)
+      this._editBlurHandler = null
+    }
+
+    this._editOverlay.remove()
+    this._editOverlay = null
+  }
+
+  private _onEditKeyDown(e: KeyboardEvent): void {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      this.stopEditing(true)
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      this.stopEditing(false)
+    }
+  }
+
+  private _onEditBlur(): void {
+    setTimeout(() => this.stopEditing(true), 0)
+  }
+
   // ── Lifecycle ──
 
   destroy(): void {
     this._cleanupDrag()
+
+    if (this._editingNodeId) {
+      this.stopEditing(false)
+    }
 
     if (this._themeUnsubscribe) {
       this._themeUnsubscribe()

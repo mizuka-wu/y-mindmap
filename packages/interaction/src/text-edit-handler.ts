@@ -9,6 +9,13 @@ export interface TextEditContext {
   getNodeTitle: (nodeId: string) => string
 }
 
+export interface RichTextEditContext {
+  isEditing: () => boolean
+  getEditingNodeId: () => string | null
+  startEditing: (nodeId: string) => void
+  stopEditing: (save: boolean) => void
+}
+
 export function createTextEditHandler(context: TextEditContext): InteractionHandler {
   return {
     handle(event: InteractionEvent, state: EditorState): Command | null {
@@ -65,6 +72,42 @@ export function createTextEditHandler(context: TextEditContext): InteractionHand
         if (context.editor.isEditing()) {
           return (state: EditorState, dispatch?: (tr: Transaction) => void) => {
             context.editor.cancelEditing()
+            return true
+          }
+        }
+      }
+
+      return null
+    },
+  }
+}
+
+export function createRichTextEditHandler(context: RichTextEditContext): InteractionHandler {
+  return {
+    handle(event: InteractionEvent, state: EditorState): Command | null {
+      if (event.type === 'keydown' && event.key === 'F2') {
+        const selectedId = state.selection.first
+        if (!selectedId) return null
+
+        return () => {
+          context.startEditing(selectedId)
+          return true
+        }
+      }
+
+      if (event.type === 'keydown' && event.key === 'Enter' && !event.modifiers?.shift) {
+        if (context.isEditing()) {
+          return () => {
+            context.stopEditing(true)
+            return true
+          }
+        }
+      }
+
+      if (event.type === 'keydown' && event.key === 'Escape') {
+        if (context.isEditing()) {
+          return () => {
+            context.stopEditing(false)
             return true
           }
         }
