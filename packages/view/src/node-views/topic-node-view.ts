@@ -155,8 +155,15 @@ export class TopicNodeView extends TitleableView {
     
     if (this._isSelected) {
       this.showSelectBox()
+      // Transient style: highlight shadow when selected
+      if (this.shape && (this.shape instanceof Rect || this.shape instanceof Ellipse || this.shape instanceof Path)) {
+        this.shape.setAttr('shadow', { x: 0, y: 0, blur: 8, color: '#4A90D980' })
+      }
     } else {
       this.hideSelectBox()
+      if (this.shape && (this.shape instanceof Rect || this.shape instanceof Ellipse || this.shape instanceof Path)) {
+        this.shape.setAttr('shadow', undefined)
+      }
     }
 
     this.refreshMarkerSizes()

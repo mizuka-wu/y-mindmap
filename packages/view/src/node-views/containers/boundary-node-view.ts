@@ -21,6 +21,12 @@ export class BoundaryNodeView extends NodeView {
   }
 
   protected initialize(): void {
+    this._lineColor = styleManager.getStyleValueOrDefault(this, StyleKey.BORDER_COLOR, '#999999')
+    this._fillColor = styleManager.getStyleValueOrDefault(this, StyleKey.FILL_COLOR, 'transparent')
+    this._borderWidth = styleManager.getStyleValueOrDefault(this, StyleKey.BORDER_WIDTH, 1)
+    this._linePattern = styleManager.getStyleValueOrDefault(this, StyleKey.BORDER_PATTERN, 'solid')
+    this._fillOpacity = styleManager.getStyleValueOrDefault(this, StyleKey.FILL_OPACITY, 0.3)
+
     this.boundaryElement = new Rect({
       width: this._size.width,
       height: this._size.height,

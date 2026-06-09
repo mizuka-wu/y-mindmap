@@ -424,6 +424,21 @@ export class BranchNodeView extends NodeView {
       case 'change:branch':
         this._handleChangeBranch(data)
         break
+      case 'addBoundary':
+        this.addBoundary(data)
+        break
+      case 'removeBoundary':
+        this.removeBoundary(data?.boundaryId)
+        break
+      case 'addSummary':
+        this.addSummary(data)
+        break
+      case 'removeSummary':
+        this.removeSummary(data?.summaryId)
+        break
+      case 'moveChildTopic':
+        this._handleMoveChildTopic(data)
+        break
     }
   }
 
@@ -450,6 +465,20 @@ export class BranchNodeView extends NodeView {
 
   private _handleChangeBranch(data: { collapsed: boolean }): void {
     this.setCollapsed(data.collapsed, true)
+  }
+
+  private _handleMoveChildTopic(data: { topicId: string; fromType: ChildType; toType: ChildType }): void {
+    const { topicId, fromType, toType } = data
+    const fromList = this._getChildList(fromType)
+    const childIndex = fromList.findIndex(c => c.nodeId === topicId)
+    if (childIndex === -1) return
+
+    const child = fromList[childIndex]
+    if (!child) return
+    fromList.splice(childIndex, 1)
+    const toList = this._getChildList(toType)
+    toList.push(child)
+    this.invalidateLayout()
   }
 
   addChildBranch(child: BranchNodeView, type: ChildType = 'attached', animate: boolean = false): void {

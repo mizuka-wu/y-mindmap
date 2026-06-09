@@ -27,6 +27,9 @@ export class RelationshipNodeView extends NodeView {
     this._relationshipData = relationshipData
   }
 
+  /** Duck-type marker for StyleManager.getNodeLevel() */
+  isRelationshipView(): boolean { return true }
+
   protected initialize(): void {
     this._loadStylesFromManager()
     

@@ -26,6 +26,7 @@ export class StyleManager {
       return cached.get(key)
     }
 
+    // 1. Node's own style (via source node)
     const sourceNode = this.getStyleSourceNode(nodeView)
     if (sourceNode) {
       const style = sourceNode.getNode().style
@@ -38,6 +39,26 @@ export class StyleManager {
       }
     }
 
+    // 2. Walk up parent chain for inherited styles
+    let parent = nodeView.getParent?.()
+    let depth = 0
+    while (parent && depth < 20) {
+      const parentSource = this.getStyleSourceNode(parent)
+      if (parentSource) {
+        const parentStyle = parentSource.getNode().style
+        if (parentStyle?.properties) {
+          const parentValue = parentStyle.properties[key]
+          if (parentValue !== undefined) {
+            this.setCacheEntry(nodeView, key, parentValue)
+            return parentValue
+          }
+        }
+      }
+      parent = parent.getParent?.()
+      depth++
+    }
+
+    // 3. Theme fallback
     const level = this.getNodeLevel(nodeView)
     if (level) {
       const themeValue = themeManager.getThemeStyleValue(level, key)
@@ -47,6 +68,7 @@ export class StyleManager {
       }
     }
 
+    // 4. Default
     const defaultValue = this.getDefaultStyleValue(key)
     this.setCacheEntry(nodeView, key, defaultValue)
     return defaultValue
@@ -107,6 +129,9 @@ export class StyleManager {
    * Returns a key that maps to a ThemeData field in ThemeManager.
    */
   private getNodeLevel(nodeView: NodeView): string | null {
+    // Relationship views (duck-type check)
+    if (typeof (nodeView as any).isRelationshipView === 'function') return 'relationship'
+
     const node = nodeView.getNode()
     switch (node.type) {
       case 'root':
@@ -179,6 +204,7 @@ export class StyleManager {
       'line-pattern': DEFAULT_CONNECTION_STYLE.lineStyle,
       'line-tapered': DEFAULT_CONNECTION_STYLE.tapered,
       'line-corner': DEFAULT_CONNECTION_STYLE.lineCorner,
+      'line-opacity': DEFAULT_CONNECTION_STYLE.lineOpacity ?? 1,
       'start-arrow': undefined,
       'end-arrow': undefined,
     }

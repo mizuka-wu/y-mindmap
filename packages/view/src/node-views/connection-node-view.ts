@@ -73,6 +73,11 @@ export class ConnectionNodeView extends NodeView {
     this.path.dashPattern = this.getDashPattern(linePattern)
     this.path.fill = lineTapered ? lineColor : 'none'
 
+    const lineOpacity = styleManager.getStyleValueOrDefault(
+      parent || this, StyleKey.LINE_OPACITY, 1
+    )
+    this.path.opacity = lineOpacity
+
     this._applyArrows(lineColor)
   }
 

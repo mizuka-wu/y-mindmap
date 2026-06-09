@@ -639,6 +639,7 @@ export class EditorView {
   }
 
   private _refreshAllColorStyles(): void {
+    styleManager.invalidateAllCache()
     if (this._rootBranch) {
       this._rootBranch.refreshColorStyles()
     }

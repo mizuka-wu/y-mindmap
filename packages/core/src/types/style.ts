@@ -27,6 +27,7 @@ export enum StyleKey {
   LINE_WIDTH = 'line-width',
   LINE_PATTERN = 'line-pattern',
   LINE_TAPERED = 'line-tapered',
+  LINE_OPACITY = 'line-opacity',
   START_ARROW = 'start-arrow',
   END_ARROW = 'end-arrow',
   BORDER_LINE_PATTERN = 'border-line-pattern',
