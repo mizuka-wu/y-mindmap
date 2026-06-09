@@ -35,6 +35,8 @@ export { BoundaryNodeView } from './node-views/containers/boundary-node-view'
 export { SummaryNodeView } from './node-views/containers/summary-node-view'
 
 export { SelectBoxNodeView, ResizeBoxNodeView, CollapseExpandNodeView } from './node-views/interactions/interaction-node-views'
+export { DragPreviewView, DropIndicatorView, DragGhostView, DropPosition } from './node-views/interactions/drag-node-views'
+export type { DropTarget } from './node-views/interactions/drag-node-views'
 
 export { RelationshipNodeView, RelationshipTitleNodeView } from './node-views/relationships/relationship-node-view'
 

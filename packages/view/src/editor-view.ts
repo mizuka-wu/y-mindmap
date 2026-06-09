@@ -426,6 +426,18 @@ export class EditorView {
   getConnectionView(connectionId: string): ConnectionNodeView | undefined {
     return this.nodeViewFactory.getConnectionView(connectionId)
   }
+
+  getOverlayLayer(): Leafer {
+    return this.overlayLayer
+  }
+
+  getTopicLayer(): Leafer {
+    return this.topicLayer
+  }
+
+  getConnectionLayer(): Leafer {
+    return this.connectionLayer
+  }
   
   destroy(): void {
     if (this._themeUnsubscribe) {

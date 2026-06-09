@@ -1,14 +1,16 @@
 export type { InteractionHandler, InteractionEvent, Command } from './handlers'
-export { 
-  createSelectHandler, 
-  createKeyboardHandler, 
-  createZoomHandler 
+export {
+  createSelectHandler,
+  createKeyboardHandler,
+  createZoomHandler
 } from './handlers'
-export { 
-  createDragHandler, 
-  createMultiSelectHandler, 
-  createViewportDragHandler 
+export {
+  createDragHandler,
+  createMultiSelectHandler,
+  createViewportDragHandler
 } from './drag-handlers'
+export { createTopicDragHandler } from './topic-drag-handler'
+export type { DropPosition, DropTarget, DragCallbacks } from './topic-drag-handler'
 export { createBoxSelectHandler } from './box-select-handler'
 export { createTextEditHandler, createUpdateTitleCommand } from './text-edit-handler'
 export type { TextEditContext } from './text-edit-handler'
