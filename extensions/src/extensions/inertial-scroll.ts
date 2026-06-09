@@ -1,4 +1,5 @@
 import { createExtension } from '@y-mindmap/extension'
+import { InertialScroll as InertialScrollHandler } from '@y-mindmap/interaction'
 
 export interface InertialScrollOptions {
   /**
@@ -27,23 +28,42 @@ export const InertialScroll = createExtension<InertialScrollOptions>({
   setup(ctx, options) {
     if (!ctx.view) return
 
-    // TODO: 从 MindMapEditor.initInertialScroll() 提取实现
-    // 1. 从 @y-mindmap/interaction 导入 InertialScroll 类
-    // 2. 创建 InertialScroll 实例，传入 options.friction 和 options.threshold
-    // 3. 绑定到 view 的 panBy 方法：
-    //    const inertialScroll = new InertialScroll((dx, dy) => {
-    //      ctx.view.panBy(dx, dy)
-    //    }, { friction: options.friction, threshold: options.threshold })
-    // 4. 监听 pointerdown/pointermove/pointerup 事件：
-    //    - pointerdown: inertialScroll.stop() + inertialScroll.record(x, y)
-    //    - pointermove: inertialScroll.record(x, y)
-    //    - pointerup: inertialScroll.start()
-    // 5. 返回清理函数：停止惯性滚动并移除事件监听
+    const view = ctx.view as any
+    const container: HTMLElement = view.container
+    if (!container) return
+
+    const inertialScroll = new InertialScrollHandler(
+      (dx, dy) => {
+        ctx.view!.panBy(dx, dy)
+      },
+      {
+        friction: options.friction,
+        minVelocity: options.threshold,
+      }
+    )
+
+    const onDown = (e: PointerEvent) => {
+      inertialScroll.stop()
+      inertialScroll.record(e.clientX, e.clientY)
+    }
+
+    const onMove = (e: PointerEvent) => {
+      inertialScroll.record(e.clientX, e.clientY)
+    }
+
+    const onUp = () => {
+      inertialScroll.start()
+    }
+
+    container.addEventListener('pointerdown', onDown)
+    container.addEventListener('pointermove', onMove)
+    container.addEventListener('pointerup', onUp)
 
     return () => {
-      // TODO: 清理逻辑
-      // inertialScroll.stop()
-      // 移除 pointerdown/pointermove/pointerup 事件监听
+      inertialScroll.stop()
+      container.removeEventListener('pointerdown', onDown)
+      container.removeEventListener('pointermove', onMove)
+      container.removeEventListener('pointerup', onUp)
     }
   },
 })
