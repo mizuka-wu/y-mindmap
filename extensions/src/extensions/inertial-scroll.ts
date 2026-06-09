@@ -29,7 +29,7 @@ export const InertialScroll = createExtension<InertialScrollOptions>({
     if (!ctx.view) return
 
     
-    const container = ctx.view!.getContainer()
+    const container = ctx.view!.getDom()
     if (!container) return
 
     const inertialScroll = new InertialScrollHandler(

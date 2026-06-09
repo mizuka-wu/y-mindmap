@@ -20,7 +20,7 @@ export const Gesture = createExtension<GestureOptions>({
     if (!ctx.view) return
 
     
-    const container = ctx.view!.getContainer()
+    const container = ctx.view!.getDom()
     if (!container) return
 
     const recognizer = new GestureRecognizer((event) => {

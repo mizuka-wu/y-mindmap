@@ -1584,7 +1584,7 @@ export class EditorView {
 
   // ── Export ──
 
-  getContainer(): HTMLElement {
+  getDom(): HTMLElement {
     return this.container
   }
 
