@@ -1,6 +1,7 @@
 packages:
   - "configs/*"
   - "packages/*"
+  - "extensions"
   - "startkits/*"
   - "formats/*"
   - "apps/*"

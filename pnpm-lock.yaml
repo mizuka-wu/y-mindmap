@@ -133,6 +133,28 @@ importers:
 
   configs/typescript-config: {}
 
+  extensions:
+    dependencies:
+      '@y-mindmap/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      '@y-mindmap/extension':
+        specifier: workspace:*
+        version: link:../packages/extension
+      yjs:
+        specifier: ^13.6.0
+        version: 13.6.31
+    devDependencies:
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:../configs/eslint-config
+      '@repo/typescript-config':
+        specifier: workspace:*
+        version: link:../configs/typescript-config
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+
   packages/ai:
     dependencies:
       '@y-mindmap/commands':
@@ -277,28 +299,6 @@ importers:
       '@y-mindmap/view':
         specifier: workspace:*
         version: link:../view
-    devDependencies:
-      '@repo/eslint-config':
-        specifier: workspace:*
-        version: link:../../configs/eslint-config
-      '@repo/typescript-config':
-        specifier: workspace:*
-        version: link:../../configs/typescript-config
-      typescript:
-        specifier: 5.9.2
-        version: 5.9.2
-
-  packages/extensions:
-    dependencies:
-      '@y-mindmap/core':
-        specifier: workspace:*
-        version: link:../core
-      '@y-mindmap/extension':
-        specifier: workspace:*
-        version: link:../extension
-      yjs:
-        specifier: ^13.6.0
-        version: 13.6.31
     devDependencies:
       '@repo/eslint-config':
         specifier: workspace:*
