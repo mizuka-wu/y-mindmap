@@ -264,7 +264,7 @@ export class MindMapEditor {
         this.commandRegistry.register(name, {
           name,
           description: `Extension command: ${name}`,
-          execute: (state, input, dispatch) => command(state, dispatch, input),
+          execute: (state, input, dispatch) => command(state, dispatch!, input),
         });
       },
       unregisterCommand: (name) => this.commandRegistry.unregister(name),
@@ -774,8 +774,7 @@ export class MindMapEditor {
         case "tap":
           if (event.center) {
             const worldPoint = this.view
-              .getViewportController()
-              .screenToCanvas(event.center.x, event.center.y);
+              .clientToWorld(event.center.x, event.center.y);
             const nodeId = this.view.getNodeAtPoint(worldPoint);
             if (nodeId) {
               this.selectNode(nodeId);
@@ -786,8 +785,7 @@ export class MindMapEditor {
         case "doubletap":
           if (event.center) {
             const worldPoint = this.view
-              .getViewportController()
-              .screenToCanvas(event.center.x, event.center.y);
+              .clientToWorld(event.center.x, event.center.y);
             const nodeId = this.view.getNodeAtPoint(worldPoint);
             if (nodeId) {
               this.startEditing(nodeId);
