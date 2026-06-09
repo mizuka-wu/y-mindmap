@@ -16,8 +16,10 @@ export class TopicNodeView extends NodeView {
   private markerViews: Group[] = []
   private imageContainer: Group | null = null
   private _owningBranch: BranchNodeView | null = null
+  private _shapeClass: string = 'roundedRect'
 
   protected initialize(): void {
+    this._shapeClass = styleManager.getStyleValueOrDefault(this, StyleKey.SHAPE_CLASS, 'roundedRect')
     this.shape = this.createShape()
     this.titleText = this.createTitle()
     
@@ -74,6 +76,10 @@ export class TopicNodeView extends NodeView {
       this.shape.y = height / 2
       this.shape.radiusX = width / 2
       this.shape.radiusY = height / 2
+    } else if (this.shape instanceof Path) {
+      this.shape.remove()
+      this.shape = ShapeFactory.create(this._shapeClass, { x: 0, y: 0, width, height })
+      this.group.add(this.shape)
     }
     
     if (this.titleText) {
@@ -303,11 +309,23 @@ export class TopicNodeView extends NodeView {
     
     switch (shapeClass) {
       case 'roundedRect':
+      case 'rectangle':
         return { top: 12, right: 16, bottom: 12, left: 16 }
       case 'ellipse':
+      case 'circle':
         return { top: 20, right: 24, bottom: 20, left: 24 }
       case 'cloud':
         return { top: 24, right: 28, bottom: 24, left: 28 }
+      case 'hexagon':
+      case 'parallelogram':
+      case 'diamond':
+      case 'triangle':
+      case 'star':
+        return { top: 18, right: 22, bottom: 18, left: 22 }
+      case 'capsule':
+      case 'barrel':
+      case 'paranCallout':
+        return { top: 14, right: 18, bottom: 14, left: 18 }
       default:
         return { top: 12, right: 16, bottom: 12, left: 16 }
     }

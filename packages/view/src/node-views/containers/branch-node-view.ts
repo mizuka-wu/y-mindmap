@@ -105,6 +105,18 @@ export class BranchNodeView extends NodeView {
     return styleManager.getStyleValueOrDefault(this, StyleKey.LINE_WIDTH, DEFAULT_CONNECTION_STYLE.lineWidth)
   }
 
+  getLineClass(): string {
+    return styleManager.getStyleValueOrDefault(this, StyleKey.LINE_CLASS, DEFAULT_CONNECTION_STYLE.lineClass ?? 'curve')
+  }
+
+  getLinePattern(): string {
+    return styleManager.getStyleValueOrDefault(this, StyleKey.LINE_PATTERN, DEFAULT_CONNECTION_STYLE.lineStyle ?? 'solid')
+  }
+
+  isLineTapered(): boolean {
+    return !!styleManager.getStyleValueOrDefault(this, StyleKey.LINE_TAPERED, DEFAULT_CONNECTION_STYLE.tapered ?? false)
+  }
+
   refreshColorStyles(): void {
     this._topicView?.refreshColorStyles()
 

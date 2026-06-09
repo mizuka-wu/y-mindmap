@@ -22,6 +22,20 @@ export class ShapeFactory {
         return ShapeFactory.createDiamond(bounds)
       case 'parallelogram':
         return ShapeFactory.createParallelogram(bounds)
+      case 'rectangle':
+        return ShapeFactory.createRectangle(bounds)
+      case 'capsule':
+        return ShapeFactory.createCapsule(bounds)
+      case 'barrel':
+        return ShapeFactory.createBarrel(bounds)
+      case 'paranCallout':
+        return ShapeFactory.createParanCallout(bounds)
+      case 'triangle':
+        return ShapeFactory.createTriangle(bounds)
+      case 'star':
+        return ShapeFactory.createStar(bounds)
+      case 'circle':
+        return ShapeFactory.createCircle(bounds)
       default:
         return ShapeFactory.createRoundedRect(bounds)
     }
@@ -119,6 +133,137 @@ export class ShapeFactory {
       x: bounds.x,
       y: bounds.y,
       path,
+    })
+  }
+
+  private static createRectangle(bounds: ShapeBounds): Rect {
+    return new Rect({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      cornerRadius: 0,
+    })
+  }
+
+  private static createCapsule(bounds: ShapeBounds): Rect {
+    return new Rect({
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      cornerRadius: Math.min(bounds.width, bounds.height) / 2,
+    })
+  }
+
+  private static createBarrel(bounds: ShapeBounds): Path {
+    const w = bounds.width
+    const h = bounds.height
+    const rx = w * 0.1
+    const ry = h * 0.12
+    const path = `
+      M ${rx} 0
+      C ${w * 0.25} ${-ry}, ${w * 0.75} ${-ry}, ${w - rx} 0
+      L ${w} ${ry}
+      C ${w + rx * 0.25} ${h * 0.4}, ${w + rx * 0.25} ${h * 0.6}, ${w} ${h - ry}
+      L ${w - rx} ${h}
+      C ${w * 0.75} ${h + ry}, ${w * 0.25} ${h + ry}, ${rx} ${h}
+      L 0 ${h - ry}
+      C ${-rx * 0.25} ${h * 0.6}, ${-rx * 0.25} ${h * 0.4}, 0 ${ry}
+      Z
+    `
+    return new Path({
+      x: bounds.x,
+      y: bounds.y,
+      path,
+    })
+  }
+
+  private static createParanCallout(bounds: ShapeBounds): Path {
+    const w = bounds.width
+    const h = bounds.height
+    const r = 10
+    const arrowW = Math.max(18, w * 0.14)
+    const arrowH = Math.max(14, h * 0.24)
+    const ax = w * 0.25
+    const path = `
+      M ${r} 0
+      L ${w - r} 0
+      Q ${w} 0 ${w} ${r}
+      L ${w} ${h - r}
+      Q ${w} ${h} ${w - r} ${h}
+      L ${ax + arrowW} ${h}
+      L ${ax} ${h + arrowH}
+      L ${ax} ${h}
+      L ${r} ${h}
+      Q 0 ${h} 0 ${h - r}
+      L 0 ${r}
+      Q 0 0 ${r} 0
+      Z
+    `
+    return new Path({
+      x: bounds.x,
+      y: bounds.y,
+      path,
+    })
+  }
+
+  private static createTriangle(bounds: ShapeBounds): Path {
+    const w = bounds.width
+    const h = bounds.height
+    const path = `
+      M ${w * 0.5} 0
+      L ${w} ${h}
+      L 0 ${h}
+      Z
+    `
+    return new Path({
+      x: bounds.x,
+      y: bounds.y,
+      path,
+    })
+  }
+
+  private static createStar(bounds: ShapeBounds): Path {
+    const w = bounds.width
+    const h = bounds.height
+    const cx = w * 0.5
+    const cy = h * 0.45
+    const outerRx = w * 0.48
+    const outerRy = h * 0.48
+    const innerRx = outerRx * 0.45
+    const innerRy = outerRy * 0.45
+    const points = 5
+    const parts: string[] = []
+    for (let i = 0; i < points; i++) {
+      const outerAngle = (Math.PI * 2 * i) / points - Math.PI / 2
+      const innerAngle = outerAngle + Math.PI / points
+      const ox = cx + outerRx * Math.cos(outerAngle)
+      const oy = cy + outerRy * Math.sin(outerAngle)
+      const ix = cx + innerRx * Math.cos(innerAngle)
+      const iy = cy + innerRy * Math.sin(innerAngle)
+      if (i === 0) {
+        parts.push(`M ${ox} ${oy}`)
+      } else {
+        parts.push(`L ${ox} ${oy}`)
+      }
+      parts.push(`L ${ix} ${iy}`)
+    }
+    parts.push('Z')
+    return new Path({
+      x: bounds.x,
+      y: bounds.y,
+      path: parts.join(' '),
+    })
+  }
+
+  private static createCircle(bounds: ShapeBounds): Ellipse {
+    const size = Math.min(bounds.width, bounds.height)
+    return new Ellipse({
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+      radiusX: size / 2,
+      radiusY: size / 2,
     })
   }
 }
