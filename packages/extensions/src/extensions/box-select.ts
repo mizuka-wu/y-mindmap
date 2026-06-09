@@ -1,4 +1,4 @@
-import { createExtension } from '../types'
+import { createExtension } from '@y-mindmap/extension'
 
 export const BoxSelect = createExtension({
   name: 'box-select',

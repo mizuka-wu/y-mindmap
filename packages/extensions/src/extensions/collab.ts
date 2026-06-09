@@ -1,5 +1,5 @@
 import * as Y from 'yjs'
-import { createExtension } from '../types'
+import { createExtension } from '@y-mindmap/extension'
 
 export interface CollabOptions {
   ydoc: Y.Doc

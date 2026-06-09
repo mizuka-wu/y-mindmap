@@ -1,4 +1,4 @@
-import { createExtension } from '../types'
+import { createExtension } from '@y-mindmap/extension'
 
 export interface MinimapOptions {
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left'

@@ -1,7 +1,6 @@
-export { createExtension } from './types'
-export type { ExtensionDefinition, ExtensionContext, ExtensionOptions } from './types'
+export { createExtension } from '@y-mindmap/extension'
+export type { ExtensionDefinition, ExtensionContext, ExtensionOptions } from '@y-mindmap/extension'
 
-export { ExtensionManager } from './extension-manager'
 export { StarterKit } from './starter-kit'
 export type { StarterKitOptions } from './starter-kit'
 

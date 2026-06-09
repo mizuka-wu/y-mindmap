@@ -1,4 +1,4 @@
-import { ExtensionDefinition } from './types'
+import { ExtensionDefinition } from '@y-mindmap/extension'
 import { ContextMenu, type ContextMenuOptions } from './extensions/context-menu'
 import { DragDrop, type DragDropOptions } from './extensions/drag-drop'
 import { BoxSelect } from './extensions/box-select'

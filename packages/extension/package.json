@@ -1,5 +1,5 @@
 {
-  "name": "@y-mindmap/extensions",
+  "name": "@y-mindmap/extension",
   "version": "0.1.0",
   "type": "module",
   "exports": {
@@ -8,7 +8,6 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "lint": "eslint . --max-warnings 0",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
@@ -18,7 +17,7 @@
   },
   "dependencies": {
     "@y-mindmap/core": "workspace:*",
-    "yjs": "^13.6.0",
-    "@y-mindmap/extension": "workspace:*"
+    "@y-mindmap/state": "workspace:*",
+    "@y-mindmap/view": "workspace:*"
   }
 }
