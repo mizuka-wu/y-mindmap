@@ -165,7 +165,7 @@ export class MapLayoutEngine implements LayoutEngine {
     let lastIndex = -1
     
     for (let i = 0; i < children.length; i++) {
-      const weight = this.getWeight(children[i])
+      const weight = this.getWeight(children[i]!)
       const newRightWeight = rightWeight + weight
       
       if (newRightWeight >= halfWeight) {
@@ -221,7 +221,7 @@ export class MapLayoutEngine implements LayoutEngine {
         childLayout = { ...this._cache.get(child.id)! }
         nodes.set(child.id, childLayout)
         
-        if (child.children && child.children.length > 0) {
+        if (child.hasChildren) {
           this.copyCachedDescendants(child, nodes, connections)
         }
       } else {
@@ -229,7 +229,7 @@ export class MapLayoutEngine implements LayoutEngine {
         childLayouts.push(childLayout)
         nodes.set(child.id, childLayout)
         
-        if (child.children && child.children.length > 0) {
+        if (child.hasChildren) {
           this.calculateDescendants(child, childLayout, side, nodes, connections, options, dirtyNodes)
         }
       }
@@ -656,6 +656,7 @@ export class FishboneLayoutEngine implements LayoutEngine {
     
     for (let i = 0; i < children.length; i++) {
       const child = children[i]
+      if (!child) continue
       const childLayout = this.calculateNodeLayout(child, options)
       
       const isTop = i % 2 === 0
