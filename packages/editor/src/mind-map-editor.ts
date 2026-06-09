@@ -4,6 +4,8 @@ import {
   MindMapNode,
   Selection,
   Transaction,
+  Sheet,
+  Workbook,
 } from "@y-mindmap/state";
 import { EditorView } from "@y-mindmap/view";
 import { LayoutEngine, MapLayout } from "@y-mindmap/layout";
@@ -50,7 +52,10 @@ import {
 } from "@y-mindmap/interaction";
 import { UIManager, UIContext } from "@y-mindmap/ui";
 import { XMindImporter, XMindExporter } from "@y-mindmap/formats/xmind";
-import { MarkdownImporter, MarkdownExporter } from "@y-mindmap/formats/markdown";
+import {
+  MarkdownImporter,
+  MarkdownExporter,
+} from "@y-mindmap/formats/markdown";
 import { JSONImporter, JSONExporter } from "@y-mindmap/formats/json";
 import { PNGExporter, PNGExportOptions } from "@y-mindmap/formats/png";
 import { SVGExporter, SVGExportOptions } from "@y-mindmap/formats/svg";
@@ -135,7 +140,14 @@ export class MindMapEditor {
     this.enableRichText = options.enableRichText || false;
 
     const doc = options.doc || MindMapDocument.createEmpty();
-    this.state = EditorState.create(doc);
+    const sheet = new Sheet({ id: crypto.randomUUID(), title: "Sheet 1", doc });
+    const workbook = new Workbook({
+      id: crypto.randomUUID(),
+      title: "Workbook",
+      sheets: [sheet],
+      activeSheetId: sheet.id,
+    });
+    this.state = EditorState.create(workbook);
 
     this.commandRegistry = new CommandRegistry();
     this.registerDefaultCommands();
@@ -258,20 +270,26 @@ export class MindMapEditor {
         this.extensionManager.register(ext);
       }
     }
-    this.extensionManager.setup(this.state, (tr) => this.dispatch(tr), this.view, {
-      executeCommand: (name, args) => this.executeCommand(name, args),
-      registerCommand: (name, command) => {
-        this.commandRegistry.register(name, {
-          name,
-          description: `Extension command: ${name}`,
-          execute: (state, input, dispatch) => command(state, dispatch!, input),
-        });
+    this.extensionManager.setup(
+      this.state,
+      (tr) => this.dispatch(tr),
+      this.view,
+      {
+        executeCommand: (name, args) => this.executeCommand(name, args),
+        registerCommand: (name, command) => {
+          this.commandRegistry.register(name, {
+            name,
+            description: `Extension command: ${name}`,
+            execute: (state, input, dispatch) =>
+              command(state, dispatch!, input),
+          });
+        },
+        unregisterCommand: (name) => this.commandRegistry.unregister(name),
       },
-      unregisterCommand: (name) => this.commandRegistry.unregister(name),
-    });
+    );
 
     // Bridge extension events to editor
-    this.extensionManager.on('document:load', (doc: MindMapDocument) => {
+    this.extensionManager.on("document:load", (doc: MindMapDocument) => {
       this.loadDocument(doc);
     });
 
@@ -388,12 +406,15 @@ export class MindMapEditor {
     });
 
     this.collabManager.onCursorChange((cursors) => {
-      const mapped = new Map<number, {
-        clientId: number;
-        user: { name: string; color: string };
-        position: { x: number; y: number };
-        nodeId: string | null;
-      }>();
+      const mapped = new Map<
+        number,
+        {
+          clientId: number;
+          user: { name: string; color: string };
+          position: { x: number; y: number };
+          nodeId: string | null;
+        }
+      >();
 
       cursors.forEach((cursor, clientId) => {
         const userState = this.collabManager!.getUser(clientId);
@@ -409,11 +430,14 @@ export class MindMapEditor {
     });
 
     this.collabManager.onSelectionChange((selections) => {
-      const mapped = new Map<number, {
-        clientId: number;
-        user: { name: string; color: string };
-        nodeIds: string[];
-      }>();
+      const mapped = new Map<
+        number,
+        {
+          clientId: number;
+          user: { name: string; color: string };
+          nodeIds: string[];
+        }
+      >();
 
       selections.forEach((nodeIds, clientId) => {
         const userState = this.collabManager!.getUser(clientId);
@@ -443,17 +467,17 @@ export class MindMapEditor {
       name: "undo",
       description: "Undo last operation",
       execute: (_state, _input, dispatch) => {
-        let newState: EditorState
+        let newState: EditorState;
         if (this.collabManager) {
-          const result = this.collabManager.undo()
-          newState = typeof result === 'object' ? result : this.state.undo()
+          const result = this.collabManager.undo();
+          newState = typeof result === "object" ? result : this.state.undo();
         } else {
-          newState = this.state.undo()
+          newState = this.state.undo();
         }
-        const tr = new Transaction(newState.doc, newState.selection)
-        tr.setMeta('source', 'undo')
-        if (dispatch) dispatch(tr)
-        return true
+        const tr = new Transaction(newState.workbook, newState.selection);
+        tr.setMeta("source", "undo");
+        if (dispatch) dispatch(tr);
+        return true;
       },
     });
 
@@ -461,17 +485,17 @@ export class MindMapEditor {
       name: "redo",
       description: "Redo last undone operation",
       execute: (_state, _input, dispatch) => {
-        let newState: EditorState
+        let newState: EditorState;
         if (this.collabManager) {
-          const result = this.collabManager.redo()
-          newState = typeof result === 'object' ? result : this.state.redo()
+          const result = this.collabManager.redo();
+          newState = typeof result === "object" ? result : this.state.redo();
         } else {
-          newState = this.state.redo()
+          newState = this.state.redo();
         }
-        const tr = new Transaction(newState.doc, newState.selection)
-        tr.setMeta('source', 'redo')
-        if (dispatch) dispatch(tr)
-        return true
+        const tr = new Transaction(newState.workbook, newState.selection);
+        tr.setMeta("source", "redo");
+        if (dispatch) dispatch(tr);
+        return true;
       },
     });
   }
@@ -543,7 +567,14 @@ export class MindMapEditor {
 
   dispatch(tr: Transaction): void {
     if (this.readOnly) return;
-    this.state = this.state.apply(tr);
+    const source = tr.getMeta("source");
+    if (source === "undo") {
+      this.state = this.state.undo();
+    } else if (source === "redo") {
+      this.state = this.state.redo();
+    } else {
+      this.state = this.state.apply(tr);
+    }
     this.uiContext.state = this.state;
     this.view.updateState(this.state);
     this.interactionManager.updateState(this.state);
@@ -551,7 +582,7 @@ export class MindMapEditor {
     this.syncTransactionToYDoc(tr);
     this.pluginManager.updateState(this.state);
     this.extensionManager.updateState(this.state);
-    this.extensionManager.emit('transaction', tr);
+    this.extensionManager.emit("transaction", tr);
     this.emitTransactionEvents(tr);
   }
 
@@ -566,14 +597,18 @@ export class MindMapEditor {
 
   loadDocument(doc: MindMapDocument): void {
     const selection = this.state.selection;
-    this.state = new EditorState(doc, selection, this.state.history);
+    const workbook = this.state.workbook.updateSheet(
+      this.state.workbook.activeSheetId,
+      (s) => s.withDoc(doc),
+    );
+    this.state = new EditorState(workbook, selection, this.state.history);
     this.uiContext.state = this.state;
     this.view.updateState(this.state);
     this.interactionManager.updateState(this.state);
     this.uiManager.update();
     this.pluginManager.updateState(this.state);
     this.extensionManager.updateState(this.state);
-    this.emitPluginEvent('document:load', doc);
+    this.emitPluginEvent("document:load", doc);
   }
 
   async loadXMindFile(file: File): Promise<any> {
@@ -648,10 +683,10 @@ export class MindMapEditor {
       return { x: 0, y: 0, width: 800, height: 600 };
     }
 
-    const minX = Math.min(...allBounds.map(b => b.x));
-    const minY = Math.min(...allBounds.map(b => b.y));
-    const maxX = Math.max(...allBounds.map(b => b.x + b.width));
-    const maxY = Math.max(...allBounds.map(b => b.y + b.height));
+    const minX = Math.min(...allBounds.map((b) => b.x));
+    const minY = Math.min(...allBounds.map((b) => b.y));
+    const maxX = Math.max(...allBounds.map((b) => b.x + b.width));
+    const maxY = Math.max(...allBounds.map((b) => b.y + b.height));
 
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
@@ -773,8 +808,10 @@ export class MindMapEditor {
 
         case "tap":
           if (event.center) {
-            const worldPoint = this.view
-              .clientToWorld(event.center.x, event.center.y);
+            const worldPoint = this.view.clientToWorld(
+              event.center.x,
+              event.center.y,
+            );
             const nodeId = this.view.getNodeAtPoint(worldPoint);
             if (nodeId) {
               this.selectNode(nodeId);
@@ -784,8 +821,10 @@ export class MindMapEditor {
 
         case "doubletap":
           if (event.center) {
-            const worldPoint = this.view
-              .clientToWorld(event.center.x, event.center.y);
+            const worldPoint = this.view.clientToWorld(
+              event.center.x,
+              event.center.y,
+            );
             const nodeId = this.view.getNodeAtPoint(worldPoint);
             if (nodeId) {
               this.startEditing(nodeId);
@@ -1042,39 +1081,42 @@ export class MindMapEditor {
   private emitTransactionEvents(tr: Transaction): void {
     for (const step of tr.steps) {
       switch (step.type) {
-        case 'addNode':
-          this.emitPluginEvent('node:create', step.node)
-          break
-        case 'removeNode':
-          this.emitPluginEvent('node:delete', step.id)
-          break
-        case 'updateNode': {
-          const oldNode = tr.beforeDoc.getNodeById(step.id)
-          const newNode = tr.doc.getNodeById(step.id)
+        case "addNode":
+          this.emitPluginEvent("node:create", step.node);
+          break;
+        case "removeNode":
+          this.emitPluginEvent("node:delete", step.id);
+          break;
+        case "updateNode": {
+          const oldNode = tr.beforeDoc.getNodeById(step.id);
+          const newNode = tr.doc.getNodeById(step.id);
           if (oldNode && newNode) {
             if (oldNode.isFolded !== newNode.isFolded) {
-              this.emitPluginEvent(newNode.isFolded ? 'node:fold' : 'node:unfold', newNode)
+              this.emitPluginEvent(
+                newNode.isFolded ? "node:fold" : "node:unfold",
+                newNode,
+              );
             } else {
-              this.emitPluginEvent('node:update', step.id)
+              this.emitPluginEvent("node:update", step.id);
             }
           }
-          break
+          break;
         }
-        case 'moveNode':
-          this.emitPluginEvent('node:move', step.nodeId)
-          break
-        case 'setSelection': {
-          const all = this.state.selection.all
+        case "moveNode":
+          this.emitPluginEvent("node:move", step.nodeId);
+          break;
+        case "setSelection": {
+          const all = this.state.selection.all;
           if (all.length > 0) {
-            this.emitPluginEvent('node:select', all)
+            this.emitPluginEvent("node:select", all);
           } else {
-            this.emitPluginEvent('node:deselect')
+            this.emitPluginEvent("node:deselect");
           }
-          break
+          break;
         }
       }
     }
-    this.emitPluginEvent('document:change', tr)
+    this.emitPluginEvent("document:change", tr);
   }
 
   destroy(): void {

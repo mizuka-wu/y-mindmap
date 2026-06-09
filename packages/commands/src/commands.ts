@@ -68,22 +68,22 @@ export function deleteNode(nodeId?: string): Command {
 
     const tr = state.tr;
     let lastValidId: string | null = null;
+    let lastParentId: string | null = null;
 
     for (const id of ids) {
       const node = state.doc.getNodeById(id);
       if (node && !node.isRoot) {
+        const parent = state.doc.findParent(id);
+        if (parent) lastParentId = parent.id;
         tr.removeNode(id);
         lastValidId = id;
       }
     }
 
-    if (lastValidId) {
-      const parent = state.doc.findParent(lastValidId);
-      if (parent) {
-        tr.setSelection(Selection.single(parent.id));
-      } else {
-        tr.setSelection(Selection.empty());
-      }
+    if (lastParentId) {
+      tr.setSelection(Selection.single(lastParentId));
+    } else if (lastValidId) {
+      tr.setSelection(Selection.empty());
     }
 
     if (dispatch) dispatch(tr);
@@ -217,9 +217,8 @@ export function undo(): Command {
   return (state: EditorState, dispatch?: (tr: Transaction) => void) => {
     if (!state.canUndo()) return false;
 
-    const newState = state.undo();
     if (dispatch) {
-      const tr = newState.tr;
+      const tr = state.tr;
       tr.setMeta("source", "undo");
       dispatch(tr);
     }
@@ -231,9 +230,8 @@ export function redo(): Command {
   return (state: EditorState, dispatch?: (tr: Transaction) => void) => {
     if (!state.canRedo()) return false;
 
-    const newState = state.redo();
     if (dispatch) {
-      const tr = newState.tr;
+      const tr = state.tr;
       tr.setMeta("source", "redo");
       dispatch(tr);
     }

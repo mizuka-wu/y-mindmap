@@ -1,6 +1,11 @@
 import { MindMapDocument } from "./mind-map-document";
 import { MindMapNode } from "./mind-map-node";
 import { Selection } from "./selection";
+import { Workbook } from "./workbook";
+import { Sheet } from "./sheet";
+import { Relationship } from "./relationship";
+import { Boundary } from "./boundary";
+import { Summary } from "./summary";
 
 export type StepType =
   | "addNode"
@@ -8,7 +13,13 @@ export type StepType =
   | "updateNode"
   | "moveNode"
   | "setSelection"
-  | "setDoc";
+  | "setDoc"
+  | "addRelationship"
+  | "removeRelationship"
+  | "addBoundary"
+  | "removeBoundary"
+  | "addSummary"
+  | "removeSummary";
 
 export interface Step {
   type: StepType;
@@ -16,26 +27,49 @@ export interface Step {
 }
 
 export class Transaction {
-  private _doc: MindMapDocument;
-  private _beforeDoc: MindMapDocument;
+  private _workbook: Workbook;
+  private _beforeWorkbook: Workbook;
   private _selection: Selection;
   private _beforeSelection: Selection;
   private _steps: Step[] = [];
   private _metadata: Record<string, any> = {};
 
-  constructor(doc: MindMapDocument, selection?: Selection) {
-    this._doc = doc;
-    this._beforeDoc = doc;
+  constructor(workbook: Workbook, selection?: Selection) {
+    this._workbook = workbook;
+    this._beforeWorkbook = workbook;
     this._selection = selection || Selection.empty();
     this._beforeSelection = selection || Selection.empty();
   }
 
+  get workbook(): Workbook {
+    return this._workbook;
+  }
+
+  get beforeWorkbook(): Workbook {
+    return this._beforeWorkbook;
+  }
+
+  get sheet(): Sheet {
+    return this._workbook.activeSheet!;
+  }
+
+  get beforeSheet(): Sheet {
+    return this._beforeWorkbook.activeSheet!;
+  }
+
   get doc(): MindMapDocument {
-    return this._doc;
+    return this._workbook.activeSheet!.doc;
   }
 
   get beforeDoc(): MindMapDocument {
-    return this._beforeDoc;
+    return this._beforeWorkbook.activeSheet!.doc;
+  }
+
+  private _updateActiveSheet(updater: (s: Sheet) => Sheet): void {
+    this._workbook = this._workbook.updateSheet(
+      this._workbook.activeSheetId,
+      updater,
+    );
   }
 
   get selection(): Selection {
@@ -74,7 +108,7 @@ export class Transaction {
   }
 
   setDoc(doc: MindMapDocument): Transaction {
-    this._doc = doc;
+    this._updateActiveSheet((s) => s.withDoc(doc));
     this._steps.push({ type: "setDoc", doc: doc.toJSON() });
     return this;
   }
@@ -85,7 +119,9 @@ export class Transaction {
     nodeType?: string,
     index?: number,
   ): Transaction {
-    this._doc = this._doc.addNode(parentId, node, nodeType, index);
+    const sheet = this.sheet;
+    const newDoc = sheet.doc.addNode(parentId, node, nodeType, index);
+    this._updateActiveSheet((s) => s.withDoc(newDoc));
     this._steps.push({
       type: "addNode",
       parentId,
@@ -97,7 +133,8 @@ export class Transaction {
   }
 
   removeNode(id: string): Transaction {
-    this._doc = this._doc.removeNode(id);
+    const newDoc = this.sheet.doc.removeNode(id);
+    this._updateActiveSheet((s) => s.withDoc(newDoc));
     this._steps.push({ type: "removeNode", id });
     return this;
   }
@@ -106,13 +143,15 @@ export class Transaction {
     id: string,
     updater: (node: MindMapNode) => MindMapNode,
   ): Transaction {
-    this._doc = this._doc.updateNode(id, updater);
+    const newDoc = this.sheet.doc.updateNode(id, updater);
+    this._updateActiveSheet((s) => s.withDoc(newDoc));
     this._steps.push({ type: "updateNode", id });
     return this;
   }
 
   moveNode(nodeId: string, newParentId: string, index?: number): Transaction {
-    this._doc = this._doc.moveNode(nodeId, newParentId, index);
+    const newDoc = this.sheet.doc.moveNode(nodeId, newParentId, index);
+    this._updateActiveSheet((s) => s.withDoc(newDoc));
     this._steps.push({
       type: "moveNode",
       nodeId,
@@ -140,37 +179,81 @@ export class Transaction {
     );
   }
 
+  addRelationship(rel: Relationship): Transaction {
+    this._updateActiveSheet((s) => s.addRelationship(rel));
+    this._steps.push({ type: "addRelationship", relationship: rel.toJSON() });
+    return this;
+  }
+
+  removeRelationship(id: string): Transaction {
+    this._updateActiveSheet((s) => s.removeRelationship(id));
+    this._steps.push({ type: "removeRelationship", id });
+    return this;
+  }
+
+  addBoundary(boundary: Boundary): Transaction {
+    this._updateActiveSheet((s) => s.addBoundary(boundary));
+    this._steps.push({ type: "addBoundary", boundary: boundary.toJSON() });
+    return this;
+  }
+
+  removeBoundary(id: string): Transaction {
+    this._updateActiveSheet((s) => s.removeBoundary(id));
+    this._steps.push({ type: "removeBoundary", id });
+    return this;
+  }
+
+  addSummary(summary: Summary): Transaction {
+    this._updateActiveSheet((s) => s.addSummary(summary));
+    this._steps.push({ type: "addSummary", summary: summary.toJSON() });
+    return this;
+  }
+
+  removeSummary(id: string): Transaction {
+    this._updateActiveSheet((s) => s.removeSummary(id));
+    this._steps.push({ type: "removeSummary", id });
+    return this;
+  }
+
   apply(state: EditorState): EditorState {
     return new EditorState(
-      this._doc,
+      this._workbook,
       this._selection,
-      state.history.push(this, state.doc, state.selection),
+      state.history.push(this, state.workbook, state.selection),
     );
   }
 }
 
 export class EditorState {
-  readonly doc: MindMapDocument;
+  readonly workbook: Workbook;
   readonly selection: Selection;
   readonly history: History;
 
-  constructor(doc: MindMapDocument, selection?: Selection, history?: History) {
-    this.doc = doc;
+  get sheet(): Sheet {
+    return this.workbook.activeSheet!;
+  }
+
+  get doc(): MindMapDocument {
+    return this.workbook.activeSheet!.doc;
+  }
+
+  constructor(workbook: Workbook, selection?: Selection, history?: History) {
+    this.workbook = workbook;
     this.selection = selection || Selection.empty();
     this.history = history || new History();
   }
 
   apply(tr: Transaction): EditorState {
     const newState = new EditorState(
-      tr.doc,
+      tr.workbook,
       tr.selection,
-      this.history.push(tr, this.doc, this.selection),
+      this.history.push(tr, this.workbook, this.selection),
     );
     return newState;
   }
 
   get tr(): Transaction {
-    return new Transaction(this.doc, this.selection);
+    return new Transaction(this.workbook, this.selection);
   }
 
   canUndo(): boolean {
@@ -191,14 +274,14 @@ export class EditorState {
     return state;
   }
 
-  static create(doc: MindMapDocument): EditorState {
-    return new EditorState(doc);
+  static create(workbook: Workbook): EditorState {
+    return new EditorState(workbook);
   }
 }
 
 interface HistoryEntry {
   tr: Transaction;
-  beforeDoc: MindMapDocument;
+  beforeWorkbook: Workbook;
   beforeSelection: Selection;
 }
 
@@ -213,22 +296,19 @@ export class History {
 
   push(
     tr: Transaction,
-    beforeDoc: MindMapDocument,
+    beforeWorkbook: Workbook,
     beforeSelection: Selection,
   ): History {
     const source = tr.getMeta("source");
-    if (source === "undo") {
-      return this._undo();
-    }
-    if (source === "redo") {
-      return this._redo();
+    if (source === "undo" || source === "redo") {
+      return this; // history 修改由 state.undo()/redo() 处理
     }
     if (!tr.hasChanges) return this;
 
     const newHistory = new History(this._maxSize);
     newHistory._undoStack = [
       ...this._undoStack,
-      { tr, beforeDoc, beforeSelection },
+      { tr, beforeWorkbook, beforeSelection },
     ];
     newHistory._redoStack = [];
 
@@ -283,7 +363,7 @@ export class History {
     newHistory._redoStack = [...this._redoStack, entry];
 
     const newState = new EditorState(
-      entry.beforeDoc,
+      entry.beforeWorkbook,
       entry.beforeSelection,
       newHistory,
     );
@@ -307,7 +387,7 @@ export class History {
     newHistory._redoStack = newRedoStack;
 
     const newState = new EditorState(
-      entry.tr.doc,
+      entry.tr.workbook,
       entry.tr.selection,
       newHistory,
     );
