@@ -3,14 +3,15 @@ import { EditorState, MindMapDocument, MindMapNode, Transaction, Selection } fro
 import type { RelationshipData } from '@y-mindmap/state'
 import type { ConnectionLayout } from '@y-mindmap/layout'
 import { MapLayoutEngine, AnimatedLayoutEngine, type LayoutEngine, type LayoutResult } from '@y-mindmap/layout'
-import { NodeViewFactory } from './node-views/node-view-factory'
+import { NodeViewFactory, NodeViewType } from './node-views/node-view-factory'
 import { TopicNodeView } from './node-views/topic-node-view'
 import { BranchNodeView } from './node-views/containers/branch-node-view'
 import { ConnectionNodeView } from './node-views/connection-node-view'
 import { RelationshipNodeView, RelationshipTitleNodeView } from './node-views/relationships/relationship-node-view'
-import { DirtyFlag } from './core/node-view'
+import { DirtyFlag, Bounds } from './core/node-view'
 import { themeManager, type ThemeChangeListener } from './core/theme-manager'
-import type { ThemeData } from '@y-mindmap/core'
+import type { ThemeData, Point } from '@y-mindmap/core'
+import { DragPreviewView, DropIndicatorView, DropPosition, DropTarget } from './node-views/interactions/drag-node-views'
 
 export interface EditorViewConfig {
   container: HTMLElement
@@ -47,6 +48,15 @@ export class EditorView {
   
   private _themeUnsubscribe: (() => void) | null = null
   
+  // Drag handling
+  private _dragPreviewView: DragPreviewView | null = null
+  private _dropIndicatorView: DropIndicatorView | null = null
+  private _isDragging: boolean = false
+  private _dragSourceId: string | null = null
+  private _dragStartPosition: Point | null = null
+  private _pointerMoveHandler: ((e: PointerEvent) => void) | null = null
+  private _pointerUpHandler: ((e: PointerEvent) => void) | null = null
+  
   constructor(config: EditorViewConfig) {
     this.container = config.container
     this.layoutEngine = config.layoutEngine || new MapLayoutEngine()
@@ -74,6 +84,8 @@ export class EditorView {
     this._themeUnsubscribe = themeManager.onThemeChange(() => {
       this._refreshAllColorStyles()
     })
+    
+    this.initDragHandling()
     
     if (config.state) {
       this.setState(config.state)
@@ -505,7 +517,275 @@ export class EditorView {
     return this.connectionLayer
   }
   
+  // ── Coordinate Conversion ──
+
+  private _clientToWorld(clientX: number, clientY: number): Point {
+    const rect = this.container.getBoundingClientRect()
+    const viewportX = clientX - rect.left
+    const viewportY = clientY - rect.top
+    const worldX = (viewportX - this.app.x) / this.app.zoom
+    const worldY = (viewportY - this.app.y) / this.app.zoom
+    return { x: worldX, y: worldY }
+  }
+
+  // ── Drag Handling ──
+
+  private initDragHandling(): void {
+    this.container.addEventListener('pointerdown', this._onPointerDown)
+  }
+
+  private _onPointerDown = (e: PointerEvent): void => {
+    if (e.button !== 0) return
+    if (!this.state) return
+    if (this._isDragging || this._dragSourceId) return
+
+    const worldPoint = this._clientToWorld(e.clientX, e.clientY)
+
+    const nodeId = this.getNodeAtPoint(worldPoint)
+    if (!nodeId) return
+
+    const node = this.state.doc.getNodeById(nodeId)
+    if (!node || node.isRoot) return
+
+    const sourceView = this.nodeViewFactory.getTopicView(nodeId)
+    if (!sourceView) return
+
+    this._isDragging = false
+    this._dragSourceId = nodeId
+    this._dragStartPosition = { ...worldPoint }
+
+    const sourceBounds = sourceView.getBounds()
+
+    const srcNode = this.state.doc.getNodeById(nodeId)!
+    this._dragPreviewView = new DragPreviewView(srcNode)
+    this._dropIndicatorView = new DropIndicatorView(srcNode)
+
+    this._dragPreviewView.show(sourceBounds.width, sourceBounds.height)
+
+    this.overlayLayer.add(this._dragPreviewView.group)
+    this.overlayLayer.add(this._dropIndicatorView.group)
+
+    document.addEventListener('pointermove', this._onPointerMove)
+    document.addEventListener('pointerup', this._onPointerUp)
+  }
+
+  private _onPointerMove = (e: PointerEvent): void => {
+    if (!this._dragSourceId || !this._dragPreviewView || !this._dragStartPosition) return
+
+    const currentWorldPoint = this._clientToWorld(e.clientX, e.clientY)
+    const sourceId = this._dragSourceId
+
+    const dx = currentWorldPoint.x - this._dragStartPosition.x
+    const dy = currentWorldPoint.y - this._dragStartPosition.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+
+    const DRAG_THRESHOLD = 5
+
+    if (!this._isDragging && distance >= DRAG_THRESHOLD) {
+      this._isDragging = true
+      const srcView = this.nodeViewFactory.getTopicView(sourceId)
+      if (srcView) {
+        srcView.setForcedInvisible(true)
+      }
+    }
+
+    if (this._isDragging) {
+      const previewBounds = this._dragPreviewView.getBounds()
+      this._dragPreviewView.setPosition({
+        x: currentWorldPoint.x - previewBounds.width / 2,
+        y: currentWorldPoint.y - previewBounds.height / 2,
+      })
+
+      const target = this.hitTest(currentWorldPoint, sourceId)
+      if (target && this._dropIndicatorView) {
+        this._dropIndicatorView.showDropTarget(target)
+      } else if (this._dropIndicatorView) {
+        this._dropIndicatorView.hide()
+      }
+    }
+  }
+
+  private _onPointerUp = (e: PointerEvent): void => {
+    document.removeEventListener('pointermove', this._onPointerMove)
+    document.removeEventListener('pointerup', this._onPointerUp)
+
+    if (this._isDragging && this._dragSourceId && this.state) {
+      const currentWorldPoint = this._clientToWorld(e.clientX, e.clientY)
+      const sourceId = this._dragSourceId
+      const target = this.hitTest(currentWorldPoint, sourceId)
+
+      if (target && target.position !== DropPosition.NONE) {
+        const targetId = target.nodeId
+        const dropPos = target.position
+
+        const sourceNode = this.state.doc.getNodeById(sourceId)
+        const targetNode = this.state.doc.getNodeById(targetId)
+
+        let isValid = true
+        if (sourceNode && targetNode && sourceId !== targetId) {
+          let isDescendant = false
+          targetNode.descendants((n: MindMapNode) => {
+            if (n.id === sourceId) isDescendant = true
+          })
+          isValid = !isDescendant
+        } else if (sourceId === targetId) {
+          isValid = false
+        }
+
+        if (isValid) {
+          const tr = this.state.tr
+
+          if (dropPos === DropPosition.INSIDE) {
+            tr.moveNode(sourceId, targetId)
+          } else {
+            const parent = this.state.doc.findParent(targetId)
+            if (parent) {
+              const siblings = parent.attachedChildren
+              const targetIndex = siblings.findIndex(n => n.id === targetId)
+              const insertIndex = dropPos === DropPosition.BEFORE ? targetIndex : targetIndex + 1
+              tr.moveNode(sourceId, parent.id, insertIndex)
+            }
+          }
+
+          tr.setSelection(Selection.single(sourceId))
+          this.dispatch(tr)
+        }
+      }
+    }
+
+    this._cleanupDragVisuals()
+
+    if (this._dragSourceId) {
+      const srcView = this.nodeViewFactory.getTopicView(this._dragSourceId)
+      if (srcView) {
+        srcView.setForcedInvisible(false)
+      }
+    }
+
+    this._isDragging = false
+    this._dragSourceId = null
+    this._dragStartPosition = null
+  }
+
+  private _cleanupDragVisuals(): void {
+    if (this._dragPreviewView) {
+      this._dragPreviewView.group.remove()
+      this._dragPreviewView = null
+    }
+    if (this._dropIndicatorView) {
+      this._dropIndicatorView.group.remove()
+      this._dropIndicatorView = null
+    }
+  }
+
+  private _cleanupDrag(): void {
+    this.container.removeEventListener('pointerdown', this._onPointerDown)
+    document.removeEventListener('pointermove', this._onPointerMove)
+    document.removeEventListener('pointerup', this._onPointerUp)
+    this._cleanupDragVisuals()
+    this._isDragging = false
+    this._dragSourceId = null
+    this._dragStartPosition = null
+    this._pointerMoveHandler = null
+    this._pointerUpHandler = null
+  }
+
+  // ── Hit Testing ──
+
+  hitTest(worldPoint: Point, sourceId: string): DropTarget | null {
+    const views = this.nodeViewFactory.getViewsByType(NodeViewType.TOPIC)
+
+    for (const view of views) {
+      if (view.nodeId === sourceId) continue
+      if (!view.isVisible() || view.isForcedInvisible()) continue
+
+      const bounds = view.getBounds()
+
+      if (worldPoint.x >= bounds.x && worldPoint.x <= bounds.x + bounds.width &&
+          worldPoint.y >= bounds.y && worldPoint.y <= bounds.y + bounds.height) {
+        const relativeY = worldPoint.y - bounds.y
+        const heightRatio = relativeY / bounds.height
+
+        let position: DropPosition
+        if (heightRatio < 0.25) {
+          position = DropPosition.BEFORE
+        } else if (heightRatio > 0.75) {
+          position = DropPosition.AFTER
+        } else {
+          position = DropPosition.INSIDE
+        }
+
+        return {
+          nodeId: view.nodeId,
+          position,
+          bounds: { ...bounds },
+        }
+      }
+    }
+
+    return null
+  }
+
+  getNodeBounds(nodeId: string): Bounds | null {
+    const view = this.nodeViewFactory.getTopicView(nodeId)
+    if (!view) return null
+
+    return view.getBounds()
+  }
+
+  getNodeAtPoint(worldPoint: Point): string | null {
+    const views = this.nodeViewFactory.getViewsByType(NodeViewType.TOPIC)
+
+    for (const view of views) {
+      if (!view.isVisible() || view.isForcedInvisible()) continue
+
+      const bounds = view.getBounds()
+      if (worldPoint.x >= bounds.x && worldPoint.x <= bounds.x + bounds.width &&
+          worldPoint.y >= bounds.y && worldPoint.y <= bounds.y + bounds.height) {
+        return view.nodeId
+      }
+    }
+
+    return null
+  }
+
+  // ── Viewport ──
+
+  updateState(state: EditorState): void {
+    this.setState(state)
+  }
+
+  getViewportController(): { getPan: () => { x: number; y: number } } {
+    return {
+      getPan: () => ({ x: this.app.x, y: this.app.y }),
+    }
+  }
+
+  getViewportBounds(): { x: number; y: number; width: number; height: number } {
+    const rect = this.container.getBoundingClientRect()
+    return {
+      x: -this.app.x / this.app.zoom,
+      y: -this.app.y / this.app.zoom,
+      width: rect.width / this.app.zoom,
+      height: rect.height / this.app.zoom,
+    }
+  }
+
+  // ── Collaboration Stubs ──
+
+  updateRemoteCursors(_cursors: Map<number, any>): void {
+    // Stub - collaboration not implemented yet
+  }
+
+  updateRemoteSelections(_selections: Map<number, any>): void {
+    // Stub - collaboration not implemented yet
+  }
+
+  // ── Lifecycle ──
+
   destroy(): void {
+    this._cleanupDrag()
+
     if (this._themeUnsubscribe) {
       this._themeUnsubscribe()
       this._themeUnsubscribe = null
