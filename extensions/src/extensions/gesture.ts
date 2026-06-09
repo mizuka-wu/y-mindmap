@@ -38,14 +38,14 @@ export const Gesture = createExtension<GestureOptions>({
           break
         case 'tap':
           if (event.center) {
-            const worldPoint = v._clientToWorld(event.center.x, event.center.y)
+            const worldPoint = v.clientToWorld(event.center.x, event.center.y)
             const nodeId = v.getNodeAtPoint(worldPoint)
             if (nodeId) ctx.executeCommand('selectNode', { nodeId })
           }
           break
         case 'doubletap':
           if (event.center) {
-            const worldPoint = v._clientToWorld(event.center.x, event.center.y)
+            const worldPoint = v.clientToWorld(event.center.x, event.center.y)
             const nodeId = v.getNodeAtPoint(worldPoint)
             if (nodeId) v.startEditing(nodeId)
           }

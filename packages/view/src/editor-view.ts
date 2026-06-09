@@ -527,8 +527,16 @@ export class EditorView {
   private updateSelection(): void {
     if (!this.state) return
     
-    const selectedIds = this.state.selection.selectedIds
+    const selectedIds = new Set(this.state.selection.selectedIds)
     
+    // Clear deselected nodes
+    for (const [, view] of this.nodeViewFactory.getAllTopicViews()) {
+      if (!selectedIds.has(view.nodeId)) {
+        view.setSelected(false)
+      }
+    }
+    
+    // Set selected nodes
     for (const nodeId of selectedIds) {
       const view = this.nodeViewFactory.getTopicView(nodeId)
       if (view) {
@@ -637,7 +645,7 @@ export class EditorView {
   
   // ── Coordinate Conversion ──
 
-  private _clientToWorld(clientX: number, clientY: number): Point {
+  clientToWorld(clientX: number, clientY: number): Point {
     const rect = this.container.getBoundingClientRect()
     const viewportX = clientX - rect.left
     const viewportY = clientY - rect.top
@@ -661,6 +669,7 @@ export class EditorView {
   }
 
   initContextMenu(): void {
+    this.container.removeEventListener('contextmenu', this._onContextMenu)
     this.container.addEventListener('contextmenu', this._onContextMenu)
   }
 
@@ -695,6 +704,7 @@ export class EditorView {
   }
 
   initRichTextEdit(): void {
+    this.container.removeEventListener('dblclick', this._onDblClick)
     this.container.addEventListener('dblclick', this._onDblClick)
   }
 
@@ -721,7 +731,7 @@ export class EditorView {
     if (!this.state) return
     if (this._isDragging || this._dragSourceId) return
 
-    const worldPoint = this._clientToWorld(e.clientX, e.clientY)
+    const worldPoint = this.clientToWorld(e.clientX, e.clientY)
     const nodeId = this.getNodeAtPoint(worldPoint)
 
     if (nodeId) {
@@ -794,7 +804,7 @@ export class EditorView {
     if (!this._enableRichTextEdit) return
     if (!this.state) return
 
-    const worldPoint = this._clientToWorld(e.clientX, e.clientY)
+    const worldPoint = this.clientToWorld(e.clientX, e.clientY)
     const nodeId = this.getNodeAtPoint(worldPoint)
     if (nodeId) {
       this.startEditing(nodeId)
@@ -804,7 +814,7 @@ export class EditorView {
   private _onPointerMove = (e: PointerEvent): void => {
     if (!this._dragSourceId || !this._dragPreviewView || !this._dragStartPosition) return
 
-    const currentWorldPoint = this._clientToWorld(e.clientX, e.clientY)
+    const currentWorldPoint = this.clientToWorld(e.clientX, e.clientY)
     const sourceId = this._dragSourceId
 
     const dx = currentWorldPoint.x - this._dragStartPosition.x
@@ -842,7 +852,7 @@ export class EditorView {
     document.removeEventListener('pointerup', this._onPointerUp)
 
     if (this._isDragging && this._dragSourceId && this.state) {
-      const currentWorldPoint = this._clientToWorld(e.clientX, e.clientY)
+      const currentWorldPoint = this.clientToWorld(e.clientX, e.clientY)
       const sourceId = this._dragSourceId
       const target = this.hitTest(currentWorldPoint, sourceId)
 
@@ -902,7 +912,7 @@ export class EditorView {
   private _onBoxSelectMove = (e: PointerEvent): void => {
     if (!this._boxSelectStartPoint || !this._boxSelectRect) return
 
-    const currentPoint = this._clientToWorld(e.clientX, e.clientY)
+    const currentPoint = this.clientToWorld(e.clientX, e.clientY)
     const start = this._boxSelectStartPoint
 
     const x = Math.min(start.x, currentPoint.x)
@@ -996,7 +1006,7 @@ export class EditorView {
     e.preventDefault()
     if (!this.state) return
 
-    const worldPoint = this._clientToWorld(e.clientX, e.clientY)
+    const worldPoint = this.clientToWorld(e.clientX, e.clientY)
     const nodeId = this.getNodeAtPoint(worldPoint)
 
     if (nodeId) {
@@ -1136,7 +1146,7 @@ export class EditorView {
     switch (command) {
       case 'addSubTopic': {
         const newNode = this.state.doc.createNode('New Topic')
-        tr.addNode(newNode, nodeId)
+        tr.addNode(nodeId, newNode)
         tr.setSelection(Selection.single(newNode.id))
         break
       }
@@ -1144,7 +1154,7 @@ export class EditorView {
         const parent = this.state.doc.findParent(nodeId)
         if (parent) {
           const newNode = this.state.doc.createNode('New Topic')
-          tr.addNode(newNode, parent.id)
+          tr.addNode(parent.id, newNode)
           tr.setSelection(Selection.single(newNode.id))
         }
         break

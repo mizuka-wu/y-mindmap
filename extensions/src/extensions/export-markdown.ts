@@ -1,5 +1,6 @@
 import { createExtension } from '@y-mindmap/extension'
 import { MarkdownImporter, MarkdownExporter } from '@y-mindmap/formats/markdown'
+import { MindMapDocument } from '@y-mindmap/state'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ExportMarkdownOptions {
@@ -21,9 +22,9 @@ export const ExportMarkdown = createExtension<ExportMarkdownOptions>({
     ctx.registerCommand('importMarkdown', (state, dispatch, args) => {
       const { text } = args as { text: string }
       
-      importer.import(text).then((doc) => {
+      importer.import(text).then((node) => {
         const tr = state.tr
-        tr.setDoc(doc)
+        tr.setDoc(MindMapDocument.fromJSON(node.toJSON()))
         dispatch(tr)
       }).catch((error) => {
         console.error('Failed to import Markdown:', error)
@@ -33,7 +34,7 @@ export const ExportMarkdown = createExtension<ExportMarkdownOptions>({
     })
 
     ctx.registerCommand('exportMarkdown', (state, dispatch, args) => {
-      const doc = state.doc
+      const doc = state.doc.root
       
       exporter.export(doc).then((text) => {
         const blob = new Blob([text], { type: 'text/markdown' })

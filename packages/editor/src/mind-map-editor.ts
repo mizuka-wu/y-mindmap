@@ -157,7 +157,7 @@ export class MindMapEditor {
       getDocument: () => this.getDocument().root,
       getZoom: () => (this.view ? this.view.getZoom() : 1),
       setZoom: (zoom) => this.view?.zoomTo(zoom),
-      panTo: (x, y) => this.view?.panTo({ x, y }),
+      panTo: (x, y) => this.view?.panTo(x, y),
       fitToContent: () => this.view?.fitToContent(),
       getNodeBounds: (nodeId) =>
         this.view ? this.getNodeBounds(nodeId) : null,
@@ -185,7 +185,7 @@ export class MindMapEditor {
       container: this.uiManager.getEditorContainer(),
       state: this.state,
       layoutEngine,
-      enableAnimation: true,
+      enableAnimations: true,
       onTitleUpdate: (nodeId, title) => {
         this.executeCommand("updateTitle", { nodeId, title });
       },
@@ -268,6 +268,11 @@ export class MindMapEditor {
         });
       },
       unregisterCommand: (name) => this.commandRegistry.unregister(name),
+    });
+
+    // Bridge extension events to editor
+    this.extensionManager.on('document:load', (doc: MindMapDocument) => {
+      this.loadDocument(doc);
     });
 
     this.bindDOMEvents();

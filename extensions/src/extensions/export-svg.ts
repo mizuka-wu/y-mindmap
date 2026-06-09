@@ -18,7 +18,7 @@ export const ExportSVG = createExtension<ExportSVGOptions>({
     const exporter = new SVGExporter()
 
     ctx.registerCommand('exportSVG', (state, dispatch, args) => {
-      const doc = state.doc
+      const doc = state.doc.root
       const options = args as { width?: number; height?: number; backgroundColor?: string } | undefined
       
       exporter.export(doc, options).then((svgString) => {

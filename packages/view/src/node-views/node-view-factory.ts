@@ -75,6 +75,10 @@ export class NodeViewFactory {
     return this.getView(NodeViewType.TOPIC, nodeId) as TopicNodeView | undefined
   }
   
+  getAllTopicViews(): Map<string, TopicNodeView> {
+    return this.viewCaches.get(NodeViewType.TOPIC) as Map<string, TopicNodeView>
+  }
+  
   createConnectionView(connectionId: string, layout: ConnectionLayout): ConnectionNodeView {
     return this.getOrCreate(NodeViewType.CONNECTION, connectionId, () => {
       const view = new ConnectionNodeView({ id: connectionId } as MindMapNode)

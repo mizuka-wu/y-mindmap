@@ -36,7 +36,7 @@ export const Minimap = createExtension<MinimapOptions>({
       getSelectedNodeIds: () => ctx.state?.selection.all ?? [],
       getViewportBounds: () => ctx.view!.getViewportBounds(),
       getZoom: () => ctx.view!.getZoom(),
-      panTo: (x, y) => ctx.view!.panTo({ x, y }),
+      panTo: (x, y) => ctx.view!.panTo(x, y),
       zoomTo: (level) => ctx.view!.zoomTo(level),
     }, options as MinimapConfig)
 

@@ -1,5 +1,6 @@
 import { createExtension } from '@y-mindmap/extension'
 import { JSONImporter, JSONExporter } from '@y-mindmap/formats/json'
+import { MindMapDocument } from '@y-mindmap/state'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ExportJSONOptions {
@@ -21,9 +22,9 @@ export const ExportJSON = createExtension<ExportJSONOptions>({
     ctx.registerCommand('importJSON', (state, dispatch, args) => {
       const { text } = args as { text: string }
       
-      importer.import(text).then((doc) => {
+      importer.import(text).then((node) => {
         const tr = state.tr
-        tr.setDoc(doc)
+        tr.setDoc(MindMapDocument.fromJSON(node.toJSON()))
         dispatch(tr)
       }).catch((error) => {
         console.error('Failed to import JSON:', error)
@@ -33,7 +34,7 @@ export const ExportJSON = createExtension<ExportJSONOptions>({
     })
 
     ctx.registerCommand('exportJSON', (state, dispatch, args) => {
-      const doc = state.doc
+      const doc = state.doc.root
       const options = args as { spaces?: number } | undefined
       
       exporter.export(doc, options).then((text) => {

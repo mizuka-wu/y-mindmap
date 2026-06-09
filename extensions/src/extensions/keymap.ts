@@ -39,7 +39,7 @@ export const Keymap = createExtension<KeymapOptions>({
 
     const handler = (e: KeyboardEvent) => {
       const view = ctx.view as any
-      const container: HTMLElement | undefined = view?.container
+      const container: HTMLElement | undefined = view?.getDom()
       if (!container) return
 
       const activeEl = document.activeElement

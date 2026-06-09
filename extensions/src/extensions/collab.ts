@@ -20,13 +20,12 @@ export const Collab = createExtension<CollabOptions>({
   },
 
   setup(ctx, options) {
-    const { ydoc, field } = options
+    const { ydoc } = options
     if (!ydoc) {
       console.warn('Collab extension requires ydoc option')
       return
     }
     const ynodes = ydoc.getMap<Y.Map<any>>('nodes')
-    const yrootId = ydoc.getText('rootId')
 
     const topic = ctx.state.doc.root.toData()
     syncTopicToY(ydoc, topic)

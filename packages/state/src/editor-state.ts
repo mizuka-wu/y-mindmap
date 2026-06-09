@@ -8,6 +8,7 @@ export type StepType =
   | "updateNode"
   | "moveNode"
   | "setSelection"
+  | "setDoc"
   | "updateTitle"
   | "updateStyle"
   | "toggleFold"
@@ -73,6 +74,12 @@ export class Transaction {
 
   setMeta(key: string, value: any): Transaction {
     this._metadata[key] = value;
+    return this;
+  }
+
+  setDoc(doc: MindMapDocument): Transaction {
+    this._doc = doc;
+    this._steps.push({ type: "setDoc", doc: doc.toJSON() });
     return this;
   }
 

@@ -1,5 +1,6 @@
 import { createExtension } from '@y-mindmap/extension'
 import { XMindImporter, XMindExporter } from '@y-mindmap/formats/xmind'
+import { MindMapDocument } from '@y-mindmap/state'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ExportXMindOptions {
@@ -21,9 +22,9 @@ export const ExportXMind = createExtension<ExportXMindOptions>({
     ctx.registerCommand('importXMind', (state, dispatch, args) => {
       const { data } = args as { data: ArrayBuffer }
       
-      importer.import(data).then((doc) => {
+      importer.import(data).then((node) => {
         const tr = state.tr
-        tr.setDoc(doc)
+        tr.setDoc(MindMapDocument.fromJSON(node.toJSON()))
         dispatch(tr)
       }).catch((error) => {
         console.error('Failed to import XMind:', error)
@@ -33,7 +34,7 @@ export const ExportXMind = createExtension<ExportXMindOptions>({
     })
 
     ctx.registerCommand('exportXMind', (state, dispatch, args) => {
-      const doc = state.doc
+      const doc = state.doc.root
       
       exporter.export(doc).then((blob) => {
         const url = URL.createObjectURL(blob)
