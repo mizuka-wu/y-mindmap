@@ -1,9 +1,9 @@
-import { Rect, Text, Group, Image as LeaferImage } from 'leafer-ui'
+import { Rect, Text, Group } from 'leafer-ui'
 import { NodeView, Size } from '../../core/node-view'
 import type { MindMapNode } from '@y-mindmap/state'
 import { styleManager } from '../../core/style-manager'
 import { StyleKey } from '@y-mindmap/core'
-import { renderFormula, type MathJaxRenderResult } from '../../utils/mathjax-renderer'
+import { renderFormula } from '../../utils/mathjax-renderer'
 
 export class MathJaxNodeView extends NodeView {
   private _formula: string = ''
@@ -14,10 +14,9 @@ export class MathJaxNodeView extends NodeView {
   private _backgroundColor: string = 'transparent'
 
   private placeholderElement: Rect | null = null
+  private htmlElement: Group | null = null
   private textElement: Text | null = null
-  private imageElement: LeaferImage | null = null
   private _renderedSize: Size = { width: 0, height: 0 }
-  private _isRendering: boolean = false
 
   constructor(node: MindMapNode, formula: string) {
     super(node)
@@ -36,7 +35,7 @@ export class MathJaxNodeView extends NodeView {
     this.textElement = new Text({
       text: this._formula,
       fontSize: this._fontSize,
-      fontFamily: 'Cambria Math, STIX, MathJax_Main, serif',
+      fontFamily: 'Cambria Math, STIX, serif',
       fill: this._color,
       textAlign: this._align,
       verticalAlign: 'middle',
@@ -44,50 +43,43 @@ export class MathJaxNodeView extends NodeView {
     this.group.add(this.textElement)
 
     this._refreshInheritedColor()
-    this._renderFormulaAsync()
+    this._renderFormula()
   }
 
-  private async _renderFormulaAsync(): Promise<void> {
-    if (this._isRendering || !this._formula) return
+  private _renderFormula(): void {
+    if (!this._formula) return
 
-    this._isRendering = true
-    try {
-      const result = await renderFormula(this._formula, {
-        fontSize: this._fontSize,
-        color: this._color,
-        display: true,
-      })
+    const result = renderFormula(this._formula, {
+      fontSize: this._fontSize,
+      color: this._color,
+      display: true,
+    })
 
-      this._renderedSize = {
-        width: result.width,
-        height: result.height,
-      }
-
-      this._applyRenderedFormula(result)
-    } catch (error) {
-      console.error('Failed to render MathJax formula:', error)
-    } finally {
-      this._isRendering = false
+    this._renderedSize = {
+      width: result.width,
+      height: result.height,
     }
-  }
 
-  private _applyRenderedFormula(result: MathJaxRenderResult): void {
     if (this.textElement) {
       this.textElement.visible = false
     }
 
-    if (this.imageElement) {
-      this.imageElement.url = result.dataUri
-      this.imageElement.width = result.width
-      this.imageElement.height = result.height
-    } else {
-      this.imageElement = new LeaferImage({
-        url: result.dataUri,
-        width: result.width,
-        height: result.height,
-      })
-      this.group.add(this.imageElement)
+    if (this.htmlElement) {
+      this.htmlElement.remove()
     }
+
+    this.htmlElement = new Group()
+    const htmlText = new Text({
+      text: this._formula,
+      fontSize: this._fontSize,
+      fontFamily: 'KaTeX_Main, Times New Roman, serif',
+      fill: this._color,
+      textAlign: this._align,
+      verticalAlign: 'middle',
+      italic: true,
+    })
+    this.htmlElement.add(htmlText)
+    this.group.add(this.htmlElement)
 
     this.invalidateLayout()
   }
@@ -99,7 +91,7 @@ export class MathJaxNodeView extends NodeView {
 
     const textLength = this._formula.length
     const autoWidth = Math.max(50, textLength * 10)
-    
+
     return {
       width: this._width > 0 ? this._width : autoWidth,
       height: 30,
@@ -116,9 +108,12 @@ export class MathJaxNodeView extends NodeView {
       this.textElement.height = this._size.height
       this.textElement.textAlign = this._align
     }
-    if (this.imageElement) {
-      this.imageElement.width = this._size.width
-      this.imageElement.height = this._size.height
+    if (this.htmlElement) {
+      const child = this.htmlElement.children?.[0]
+      if (child) {
+        ;(child as any).width = this._size.width
+        ;(child as any).height = this._size.height
+      }
     }
   }
 
@@ -159,12 +154,12 @@ export class MathJaxNodeView extends NodeView {
       this.textElement.text = formula
       this.textElement.visible = true
     }
-    if (this.imageElement) {
-      this.imageElement.visible = false
+    if (this.htmlElement) {
+      this.htmlElement.visible = false
     }
     this._renderedSize = { width: 0, height: 0 }
     this.invalidateLayout()
-    this._renderFormulaAsync()
+    this._renderFormula()
   }
 
   setWidth(width: number): void {
@@ -191,7 +186,7 @@ export class MathJaxNodeView extends NodeView {
     if (this._fontSize === size) return
     this._fontSize = size
     this.invalidateLayout()
-    this._renderFormulaAsync()
+    this._renderFormula()
   }
 
   getFontSize(): number {
@@ -202,7 +197,7 @@ export class MathJaxNodeView extends NodeView {
     if (this._color === color) return
     this._color = color
     this.invalidatePaint()
-    this._renderFormulaAsync()
+    this._renderFormula()
   }
 
   getColor(): string {
