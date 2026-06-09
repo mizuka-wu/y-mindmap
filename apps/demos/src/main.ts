@@ -1,6 +1,6 @@
 import {
   createMindMap,
-  MindMapDocument,
+  RootTopic,
   MindMapNode,
   TopicType,
   StructureType,
@@ -27,7 +27,7 @@ setupDemo();
 (window as any).__ymindmap = {
   editor,
   Selection,
-  MindMapDocument,
+  RootTopic,
   MindMapNode,
   TopicType,
   StructureType,
@@ -39,7 +39,7 @@ function setupDemo() {
   editor.fitToContent();
 }
 
-function createDemoDocument(): MindMapDocument {
+function createDemoDocument(): RootTopic {
   const root = new MindMapNode({
     id: "root",
     title: "Y-MindMap 功能演示",
@@ -122,5 +122,5 @@ function createDemoDocument(): MindMapDocument {
     },
   });
 
-  return new MindMapDocument(root);
+  return new RootTopic(root);
 }

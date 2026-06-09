@@ -1,4 +1,4 @@
-import { createMindMap, MindMapDocument, MindMapNode, TopicType } from '@y-mindmap/vanilla'
+import { createMindMap, RootTopic, MindMapNode, TopicType } from '@y-mindmap/vanilla'
 import { StateDescriber, SuggestionEngine, QueryBuilder } from '@y-mindmap/ai'
 
 const container = document.getElementById('app')
@@ -21,7 +21,7 @@ function setupDemo() {
   editor.fitToContent()
 }
 
-function createDemoDocument(): MindMapDocument {
+function createDemoDocument(): RootTopic {
   const root = new MindMapNode({
     id: 'root',
     title: '项目计划',
@@ -73,7 +73,7 @@ function createDemoDocument(): MindMapDocument {
     },
   })
 
-  return new MindMapDocument(root)
+  return new RootTopic(root)
 }
 
 function setupAIUI() {

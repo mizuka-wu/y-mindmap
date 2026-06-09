@@ -1,4 +1,4 @@
-import { MindMapDocument } from '@y-mindmap/state'
+import { RootTopic } from '@y-mindmap/state'
 import { MindMapEditor } from '@y-mindmap/editor'
 import type { ExtensionDefinition } from '@y-mindmap/extension'
 import { StarterKit } from '@y-mindmap/vanilla'

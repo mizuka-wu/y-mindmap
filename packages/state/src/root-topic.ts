@@ -1,7 +1,7 @@
 import { TopicData, TopicType } from "@y-mindmap/core";
 import { MindMapNode } from "./mind-map-node";
 
-export class MindMapDocument {
+export class RootTopic {
   readonly root: MindMapNode;
 
   constructor(root: MindMapNode) {
@@ -41,9 +41,9 @@ export class MindMapDocument {
   updateNode(
     id: string,
     updater: (node: MindMapNode) => MindMapNode,
-  ): MindMapDocument {
+  ): RootTopic {
     const newRoot = this.updateNodeRecursive(this.root, id, updater);
-    return new MindMapDocument(newRoot);
+    return new RootTopic(newRoot);
   }
 
   private updateNodeRecursive(
@@ -85,17 +85,17 @@ export class MindMapDocument {
     child: MindMapNode,
     type: string = "attached",
     index?: number,
-  ): MindMapDocument {
+  ): RootTopic {
     return this.updateNode(parentId, (parent) =>
       parent.addChild(child, type, index),
     );
   }
 
-  removeNode(id: string): MindMapDocument {
+  removeNode(id: string): RootTopic {
     const newRoot = this.removeNodeRecursive(this.root, id);
     return newRoot
-      ? new MindMapDocument(newRoot)
-      : MindMapDocument.createEmpty();
+      ? new RootTopic(newRoot)
+      : RootTopic.createEmpty();
   }
 
   private removeNodeRecursive(
@@ -125,25 +125,25 @@ export class MindMapDocument {
     nodeId: string,
     newParentId: string,
     index?: number,
-  ): MindMapDocument {
+  ): RootTopic {
     const node = this.getNodeById(nodeId);
     if (!node) return this;
 
-    let doc = this.removeNode(nodeId);
-    doc = doc.addNode(newParentId, node, "attached", index);
-    return doc;
+    let tree = this.removeNode(nodeId);
+    tree = tree.addNode(newParentId, node, "attached", index);
+    return tree;
   }
 
   toJSON(): TopicData {
     return this.root.toJSON();
   }
 
-  static fromJSON(data: TopicData): MindMapDocument {
-    return new MindMapDocument(MindMapNode.fromJSON(data));
+  static fromJSON(data: TopicData): RootTopic {
+    return new RootTopic(MindMapNode.fromJSON(data));
   }
 
-  static createEmpty(): MindMapDocument {
-    return new MindMapDocument(
+  static createEmpty(): RootTopic {
+    return new RootTopic(
       new MindMapNode({
         id: "root",
         title: "Central Topic",

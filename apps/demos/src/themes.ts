@@ -1,4 +1,4 @@
-import { createMindMap, MindMapDocument, MindMapNode, TopicType } from '@y-mindmap/vanilla'
+import { createMindMap, RootTopic, MindMapNode, TopicType } from '@y-mindmap/vanilla'
 import { 
   CLASSIC_THEME, DARK_THEME, COLORFUL_THEME, 
   MINIMALIST_THEME, OCEAN_THEME, FOREST_THEME, SUNSET_THEME 
@@ -34,7 +34,7 @@ function setupDemo() {
   editor.fitToContent()
 }
 
-function createDemoDocument(): MindMapDocument {
+function createDemoDocument(): RootTopic {
   const root = new MindMapNode({
     id: 'root',
     title: '主题演示',
@@ -66,7 +66,7 @@ function createDemoDocument(): MindMapDocument {
     },
   })
 
-  return new MindMapDocument(root)
+  return new RootTopic(root)
 }
 
 function setupThemeUI() {

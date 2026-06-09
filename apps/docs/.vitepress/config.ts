@@ -59,7 +59,7 @@ export default defineConfig({
           items: [
             { text: 'MindMapEditor', link: '/api/editor' },
             { text: 'MindMapNode', link: '/api/node' },
-            { text: 'MindMapDocument', link: '/api/document' },
+            { text: 'RootTopic', link: '/api/document' },
           ],
         },
         {

@@ -1,7 +1,7 @@
 import { App, Leafer, Group, Rect } from "leafer-ui";
 import {
   EditorState,
-  MindMapDocument,
+  RootTopic,
   MindMapNode,
   Transaction,
   Selection,

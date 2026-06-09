@@ -1,4 +1,4 @@
-import { MindMapDocument } from "./mind-map-document";
+import { RootTopic } from "./root-topic";
 import { MindMapNode } from "./mind-map-node";
 import { Selection } from "./selection";
 import { Workbook } from "./workbook";
@@ -57,11 +57,11 @@ export class Transaction {
     return this._beforeWorkbook.activeSheet!;
   }
 
-  get doc(): MindMapDocument {
+  get doc(): RootTopic {
     return this._workbook.activeSheet!.doc;
   }
 
-  get beforeDoc(): MindMapDocument {
+  get beforeDoc(): RootTopic {
     return this._beforeWorkbook.activeSheet!.doc;
   }
 
@@ -107,7 +107,7 @@ export class Transaction {
     return this;
   }
 
-  setDoc(doc: MindMapDocument): Transaction {
+  setDoc(doc: RootTopic): Transaction {
     this._updateActiveSheet((s) => s.withDoc(doc));
     this._steps.push({ type: "setDoc", doc: doc.toJSON() });
     return this;
@@ -233,7 +233,7 @@ export class EditorState {
     return this.workbook.activeSheet!;
   }
 
-  get doc(): MindMapDocument {
+  get doc(): RootTopic {
     return this.workbook.activeSheet!.doc;
   }
 

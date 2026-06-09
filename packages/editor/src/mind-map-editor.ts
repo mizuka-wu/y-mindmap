@@ -1,6 +1,6 @@
 import {
   EditorState,
-  MindMapDocument,
+  RootTopic,
   MindMapNode,
   Selection,
   Transaction,
@@ -83,7 +83,7 @@ import { ExtensionManager, ExtensionDefinition } from "@y-mindmap/extension";
 
 export interface MindMapEditorOptions {
   container: HTMLElement;
-  doc?: MindMapDocument;
+  doc?: RootTopic;
   layoutEngine?: LayoutEngine;
   readOnly?: boolean;
   keymap?: Record<string, string>;
@@ -139,7 +139,7 @@ export class MindMapEditor {
     this.readOnly = options.readOnly || false;
     this.enableRichText = options.enableRichText || false;
 
-    const doc = options.doc || MindMapDocument.createEmpty();
+    const doc = options.doc || RootTopic.createEmpty();
     const sheet = new Sheet({ id: crypto.randomUUID(), title: "Sheet 1", doc });
     const workbook = new Workbook({
       id: crypto.randomUUID(),
@@ -289,7 +289,7 @@ export class MindMapEditor {
     );
 
     // Bridge extension events to editor
-    this.extensionManager.on("document:load", (doc: MindMapDocument) => {
+    this.extensionManager.on("document:load", (doc: RootTopic) => {
       this.loadDocument(doc);
     });
 
@@ -341,7 +341,7 @@ export class MindMapEditor {
 
       const remoteTopic = syncYToTopic(ydoc);
       if (remoteTopic) {
-        const doc = MindMapDocument.fromJSON(remoteTopic);
+        const doc = RootTopic.fromJSON(remoteTopic);
         this.loadDocument(doc);
       }
     });
@@ -401,7 +401,7 @@ export class MindMapEditor {
     this.collabManager.syncTopic(topic);
 
     this.collabManager.onUpdate((remoteTopic) => {
-      const doc = MindMapDocument.fromJSON(remoteTopic);
+      const doc = RootTopic.fromJSON(remoteTopic);
       this.loadDocument(doc);
     });
 
@@ -595,7 +595,7 @@ export class MindMapEditor {
     );
   }
 
-  loadDocument(doc: MindMapDocument): void {
+  loadDocument(doc: RootTopic): void {
     const selection = this.state.selection;
     const workbook = this.state.workbook.updateSheet(
       this.state.workbook.activeSheetId,
@@ -614,7 +614,7 @@ export class MindMapEditor {
   async loadXMindFile(file: File): Promise<any> {
     const arrayBuffer = await file.arrayBuffer();
     const doc = await this.xmindImporter.import(arrayBuffer);
-    this.loadDocument(MindMapDocument.fromJSON(doc.toJSON()));
+    this.loadDocument(RootTopic.fromJSON(doc.toJSON()));
     return doc;
   }
 
@@ -625,7 +625,7 @@ export class MindMapEditor {
 
   async loadMarkdown(text: string): Promise<MindMapNode> {
     const doc = await this.markdownImporter.import(text);
-    this.loadDocument(MindMapDocument.fromJSON(doc.toJSON()));
+    this.loadDocument(RootTopic.fromJSON(doc.toJSON()));
     return doc;
   }
 
@@ -641,7 +641,7 @@ export class MindMapEditor {
 
   async loadJSON(text: string): Promise<MindMapNode> {
     const doc = await this.jsonImporter.import(text);
-    this.loadDocument(MindMapDocument.fromJSON(doc.toJSON()));
+    this.loadDocument(RootTopic.fromJSON(doc.toJSON()));
     return doc;
   }
 
@@ -691,7 +691,7 @@ export class MindMapEditor {
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 
-  getDocument(): MindMapDocument {
+  getDocument(): RootTopic {
     return this.state.doc;
   }
 

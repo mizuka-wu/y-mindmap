@@ -1,5 +1,5 @@
 export { MindMapNode } from "./mind-map-node";
-export { MindMapDocument } from "./mind-map-document";
+export { RootTopic } from "./root-topic";
 export { Selection } from "./selection";
 export { EditorState, Transaction, History } from "./editor-state";
 export { Sheet } from "./sheet";

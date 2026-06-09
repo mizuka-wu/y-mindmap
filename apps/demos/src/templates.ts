@@ -1,4 +1,4 @@
-import { createMindMap, MindMapDocument, MindMapNode, TopicType } from '@y-mindmap/vanilla'
+import { createMindMap, RootTopic, MindMapNode, TopicType } from '@y-mindmap/vanilla'
 import { ALL_TEMPLATES, getTemplateById, TEMPLATE_CATEGORIES } from '@y-mindmap/templates'
 
 const container = document.getElementById('app')
@@ -41,7 +41,7 @@ function loadTemplate(templateId: string) {
   const template = getTemplateById(templateId)
   if (!template) return
   
-  const doc = MindMapDocument.fromJSON(template.root)
+  const doc = RootTopic.fromJSON(template.root)
   editor.loadDocument(doc)
   editor.fitToContent()
 }

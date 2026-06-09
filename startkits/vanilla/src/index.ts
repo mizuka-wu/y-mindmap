@@ -1,4 +1,4 @@
-import { MindMapDocument } from '@y-mindmap/state'
+import { RootTopic } from '@y-mindmap/state'
 import { MindMapEditor, MindMapEditorOptions } from '@y-mindmap/editor'
 import { StarterKit } from './starter-kit'
 
@@ -14,5 +14,5 @@ export { StarterKit } from './starter-kit'
 export type { StarterKitOptions } from './starter-kit'
 export { MindMapEditor } from '@y-mindmap/editor'
 export type { MindMapEditorOptions } from '@y-mindmap/editor'
-export { MindMapDocument, MindMapNode, EditorState, Selection } from '@y-mindmap/state'
+export { RootTopic, MindMapNode, EditorState, Selection } from '@y-mindmap/state'
 export * from '@y-mindmap/core'

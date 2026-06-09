@@ -1,6 +1,6 @@
-import { createExtension } from '@y-mindmap/extension'
-import { XMindImporter, XMindExporter } from '@y-mindmap/formats/xmind'
-import { MindMapDocument } from '@y-mindmap/state'
+import { createExtension } from "@y-mindmap/extension";
+import { XMindImporter, XMindExporter } from "@y-mindmap/formats/xmind";
+import { RootTopic } from "@y-mindmap/state";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface ExportXMindOptions {
@@ -8,51 +8,57 @@ export interface ExportXMindOptions {
 }
 
 export const ExportXMind = createExtension<ExportXMindOptions>({
-  name: 'export-xmind',
-  type: 'behavior',
+  name: "export-xmind",
+  type: "behavior",
 
   defaultOptions: {
     enabled: true,
   },
 
   setup(ctx) {
-    const importer = new XMindImporter()
-    const exporter = new XMindExporter()
+    const importer = new XMindImporter();
+    const exporter = new XMindExporter();
 
-    ctx.registerCommand('importXMind', (state, dispatch, args) => {
-      const { data } = args as { data: ArrayBuffer }
-      
-      importer.import(data).then((node) => {
-        const tr = state.tr
-        tr.setDoc(MindMapDocument.fromJSON(node.toJSON()))
-        dispatch(tr)
-      }).catch((error) => {
-        console.error('Failed to import XMind:', error)
-      })
-      
-      return true
-    })
+    ctx.registerCommand("importXMind", (state, dispatch, args) => {
+      const { data } = args as { data: ArrayBuffer };
 
-    ctx.registerCommand('exportXMind', (state, dispatch, args) => {
-      const doc = state.doc.root
-      
-      exporter.export(doc).then((blob) => {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'mindmap.xmind'
-        a.click()
-        URL.revokeObjectURL(url)
-      }).catch((error) => {
-        console.error('Failed to export XMind:', error)
-      })
-      
-      return true
-    })
+      importer
+        .import(data)
+        .then((node) => {
+          const tr = state.tr;
+          tr.setDoc(RootTopic.fromJSON(node.toJSON()));
+          dispatch(tr);
+        })
+        .catch((error) => {
+          console.error("Failed to import XMind:", error);
+        });
+
+      return true;
+    });
+
+    ctx.registerCommand("exportXMind", (state, dispatch, args) => {
+      const doc = state.doc.root;
+
+      exporter
+        .export(doc)
+        .then((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "mindmap.xmind";
+          a.click();
+          URL.revokeObjectURL(url);
+        })
+        .catch((error) => {
+          console.error("Failed to export XMind:", error);
+        });
+
+      return true;
+    });
 
     return () => {
-      ctx.unregisterCommand('importXMind')
-      ctx.unregisterCommand('exportXMind')
-    }
+      ctx.unregisterCommand("importXMind");
+      ctx.unregisterCommand("exportXMind");
+    };
   },
-})
+});

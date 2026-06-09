@@ -1,4 +1,4 @@
-import { createMindMap, MindMapDocument, MindMapNode, TopicType } from '@y-mindmap/vanilla'
+import { createMindMap, RootTopic, MindMapNode, TopicType } from '@y-mindmap/vanilla'
 import { AttributeTitle } from '@y-mindmap/core'
 
 const container = document.getElementById('app')
@@ -21,7 +21,7 @@ function setupDemo() {
   editor.fitToContent()
 }
 
-function createRichTextDocument(): MindMapDocument {
+function createRichTextDocument(): RootTopic {
   const boldTitle: AttributeTitle = [
     { text: '粗体文本', 'fo:font-weight': 'bold' },
   ]
@@ -125,5 +125,5 @@ function createRichTextDocument(): MindMapDocument {
     },
   })
 
-  return new MindMapDocument(root)
+  return new RootTopic(root)
 }

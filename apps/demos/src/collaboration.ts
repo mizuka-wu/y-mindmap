@@ -1,4 +1,4 @@
-import { createMindMap, MindMapDocument, MindMapNode, TopicType } from '@y-mindmap/vanilla'
+import { createMindMap, RootTopic, MindMapNode, TopicType } from '@y-mindmap/vanilla'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 
@@ -32,7 +32,7 @@ function setupDemo() {
   editor.fitToContent()
 }
 
-function createDemoDocument(): MindMapDocument {
+function createDemoDocument(): RootTopic {
   const root = new MindMapNode({
     id: 'root',
     title: '协作编辑演示',
@@ -58,7 +58,7 @@ function createDemoDocument(): MindMapDocument {
     },
   })
 
-  return new MindMapDocument(root)
+  return new RootTopic(root)
 }
 
 function setupCollabUI() {

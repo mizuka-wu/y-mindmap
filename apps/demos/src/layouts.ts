@@ -1,4 +1,4 @@
-import { createMindMap, MindMapDocument, MindMapNode, TopicType, StructureType } from '@y-mindmap/vanilla'
+import { createMindMap, RootTopic, MindMapNode, TopicType, StructureType } from '@y-mindmap/vanilla'
 
 const container = document.getElementById('app')
 if (!container) {
@@ -38,7 +38,7 @@ function setupDemo() {
   editor.fitToContent()
 }
 
-function createDemoDocument(): MindMapDocument {
+function createDemoDocument(): RootTopic {
   const root = new MindMapNode({
     id: 'root',
     title: '布局演示',
@@ -77,7 +77,7 @@ function createDemoDocument(): MindMapDocument {
     },
   })
 
-  return new MindMapDocument(root)
+  return new RootTopic(root)
 }
 
 function setupLayoutUI() {
