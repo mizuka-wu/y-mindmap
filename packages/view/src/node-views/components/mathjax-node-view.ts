@@ -46,10 +46,10 @@ export class MathJaxNodeView extends NodeView {
     this._renderFormula()
   }
 
-  private _renderFormula(): void {
+  private async _renderFormula(): Promise<void> {
     if (!this._formula) return
 
-    const result = renderFormula(this._formula, {
+    const result = await renderFormula(this._formula, {
       fontSize: this._fontSize,
       color: this._color,
       display: true,
