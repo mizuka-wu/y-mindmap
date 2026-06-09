@@ -81,7 +81,8 @@ export class CollabManager {
 
   private setupDocObserver(): void {
     this.doc.doc.on("update", (update: Uint8Array, origin: any) => {
-      if (origin === "websocket-provider") return;
+      // Skip local editor changes (already applied); fire for remote WebSocket updates
+      if (origin === "editor-dispatch") return;
 
       const topic = syncYToTopic(this.doc);
       if (topic) {

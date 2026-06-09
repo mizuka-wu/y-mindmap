@@ -20,3 +20,6 @@ export type {
 
 export { CollabManager } from "./collab-manager";
 export type { CollabOptions, CollabState } from "./collab-manager";
+
+export type { CursorState, UserState } from "./awareness";
+export type { ConflictInfo, ConflictEvent } from "./conflict-detector";

@@ -67,6 +67,11 @@ import {
   CollaboratorState,
   CollaboratorUser,
   LockConflict,
+  CollabManager,
+  CollabOptions,
+  CollabState,
+  ConflictEvent,
+  CursorState,
 } from "@y-mindmap/collab";
 import { PluginManager, Plugin, PluginEvent } from "@y-mindmap/plugins";
 
@@ -85,6 +90,7 @@ export interface MindMapEditorOptions {
   enableRichText?: boolean;
   ydoc?: Y.Doc;
   user?: CollaboratorUser;
+  collab?: CollabOptions;
   plugins?: Plugin[];
 }
 
@@ -115,6 +121,7 @@ export class MindMapEditor {
   private ydoc: Y.Doc | null = null;
   private binding: YDocBinding | null = null;
   private collaborators: CollaboratorManager | null = null;
+  private collabManager: CollabManager | null = null;
   private pluginManager: PluginManager;
   private uiContext: UIContext;
 
@@ -226,6 +233,10 @@ export class MindMapEditor {
       this.initCollaboration(options.ydoc, options.user);
     }
 
+    if (options.collab) {
+      this.initCollabManager(options.collab);
+    }
+
     this.pluginManager = new PluginManager();
     this.pluginManager.setEditorContext(this.state, (tr) => this.dispatch(tr));
 
@@ -239,7 +250,11 @@ export class MindMapEditor {
   }
 
   get isCollaborating(): boolean {
-    return this.binding !== null;
+    return this.binding !== null || this.collabManager !== null;
+  }
+
+  getCollabManager(): CollabManager | null {
+    return this.collabManager;
   }
 
   getCollaboratorManager(): CollaboratorManager | null {
@@ -332,11 +347,96 @@ export class MindMapEditor {
     });
   }
 
-  private syncTransactionToYDoc(tr: Transaction): void {
-    if (!this.ydoc) return;
+  private initCollabManager(options: CollabOptions): void {
+    this.collabManager = new CollabManager(options);
 
-    this.ydoc.transact(() => {
-      const nodes = this.ydoc!.getMap<Y.Map<any>>("nodes");
+    const topic = this.getDocument().root.toData();
+    this.collabManager.syncTopic(topic);
+
+    this.collabManager.onUpdate((remoteTopic) => {
+      const doc = MindMapDocument.fromJSON(remoteTopic);
+      this.loadDocument(doc);
+    });
+
+    this.collabManager.onCursorChange((cursors) => {
+      const mapped = new Map<number, {
+        clientId: number;
+        user: { name: string; color: string };
+        position: { x: number; y: number };
+        nodeId: string | null;
+      }>();
+
+      cursors.forEach((cursor, clientId) => {
+        const userState = this.collabManager!.getUser(clientId);
+        mapped.set(clientId, {
+          clientId,
+          user: userState?.user || { name: "Unknown", color: "#999" },
+          position: cursor.position,
+          nodeId: cursor.nodeId,
+        });
+      });
+
+      this.view.updateRemoteCursors(mapped);
+    });
+
+    this.collabManager.onSelectionChange((selections) => {
+      const mapped = new Map<number, {
+        clientId: number;
+        user: { name: string; color: string };
+        nodeIds: string[];
+      }>();
+
+      selections.forEach((nodeIds, clientId) => {
+        const userState = this.collabManager!.getUser(clientId);
+        mapped.set(clientId, {
+          clientId,
+          user: userState?.user || { name: "Unknown", color: "#999" },
+          nodeIds,
+        });
+      });
+
+      this.view.updateRemoteSelections(mapped);
+    });
+
+    this.collabManager.onConflict((event) => {
+      this.emitPluginEvent("collab:conflict", event);
+    });
+
+    this.collabManager.onStateChange((state) => {
+      this.emitPluginEvent("collab:state-change", state);
+    });
+
+    this.registerCollabUndoRedo();
+  }
+
+  private registerCollabUndoRedo(): void {
+    this.commandRegistry.register("undo", {
+      name: "undo",
+      execute: () => {
+        if (this.collabManager) {
+          return this.collabManager.undo();
+        }
+        return this.state.undo();
+      },
+    });
+
+    this.commandRegistry.register("redo", {
+      name: "redo",
+      execute: () => {
+        if (this.collabManager) {
+          return this.collabManager.redo();
+        }
+        return this.state.redo();
+      },
+    });
+  }
+
+  private syncTransactionToYDoc(tr: Transaction): void {
+    const doc = this.collabManager?.doc.doc || this.ydoc;
+    if (!doc) return;
+
+    doc.transact(() => {
+      const nodes = doc.getMap<Y.Map<any>>("nodes");
 
       for (const step of tr.steps) {
         switch (step.type) {
@@ -537,10 +637,16 @@ export class MindMapEditor {
   }
 
   canUndo(): boolean {
+    if (this.collabManager) {
+      return this.collabManager.getState().canUndo;
+    }
     return this.state.canUndo();
   }
 
   canRedo(): boolean {
+    if (this.collabManager) {
+      return this.collabManager.getState().canRedo;
+    }
     return this.state.canRedo();
   }
 
@@ -943,6 +1049,7 @@ export class MindMapEditor {
 
   destroy(): void {
     this.pluginManager.destroy();
+    this.collabManager?.destroy();
     this.binding?.destroy();
     this.view.stopEditing(false);
     this.richTextInlineEditor.dispose();
