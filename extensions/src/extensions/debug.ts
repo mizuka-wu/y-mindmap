@@ -59,7 +59,7 @@ export const Debug = createExtension<DebugOptions>({
       if (options.consoleOutput !== false) {
         const prefix = `[Y-MindMap][${category}]`
         const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log
-        data !== undefined ? fn(prefix, message, data) : fn(prefix, message)
+        if (data !== undefined) { fn(prefix, message, data) } else { fn(prefix, message) }
       }
 
       if (panelEl) renderEntry(entry)
