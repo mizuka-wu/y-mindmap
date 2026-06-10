@@ -70,8 +70,8 @@ describe('NodeView', () => {
 
     it('should initialize with default size', () => {
       const size = nodeView.getSize()
-      expect(size.width).toBe(-1)
-      expect(size.height).toBe(-1)
+      expect(size.width).toBe(0)
+      expect(size.height).toBe(0)
     })
   })
 

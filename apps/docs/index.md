@@ -11,7 +11,8 @@ hero:
       link: /guide/getting-started
     - theme: alt
       text: 在线演示
-      link: https://y-mindmap.vercel.app
+      link: /demo/
+      target: _self
     - theme: alt
       text: GitHub
       link: https://github.com/your-org/y-mindmap

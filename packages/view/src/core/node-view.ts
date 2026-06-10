@@ -43,7 +43,7 @@ export abstract class NodeView {
   readonly group: Group
   readonly nodeId: string
   
-  protected _size: Size = { width: -1, height: -1 }
+  protected _size: Size = { width: 0, height: 0 }
   protected _preferredSize: Size | null = null
   protected _position: Position = { x: 0, y: 0 }
   
