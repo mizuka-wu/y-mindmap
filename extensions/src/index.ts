@@ -28,6 +28,9 @@ export type { KeymapOptions } from './extensions/keymap'
 export { Clipboard } from './extensions/clipboard'
 export type { ClipboardOptions } from './extensions/clipboard'
 
+export { Debug } from './extensions/debug'
+export type { DebugOptions } from './extensions/debug'
+
 export { ExportXMind } from './extensions/export-xmind'
 export type { ExportXMindOptions } from './extensions/export-xmind'
 

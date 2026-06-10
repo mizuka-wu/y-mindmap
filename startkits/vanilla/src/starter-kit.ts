@@ -18,6 +18,8 @@ import {
   type MinimapOptions,
   ZoomControls,
   type ZoomControlsOptions,
+  Debug,
+  type DebugOptions,
   ExportXMind,
   ExportMarkdown,
   ExportJSON,
@@ -38,6 +40,7 @@ export interface StarterKitOptions {
   clipboard?: false
   minimap?: Partial<MinimapOptions> | false
   zoomControls?: Partial<ZoomControlsOptions> | false
+  debug?: Partial<DebugOptions> | false
   exportXMind?: false
   exportMarkdown?: false
   exportJSON?: false
@@ -119,6 +122,10 @@ export function StarterKit(options?: StarterKitOptions): ExtensionDefinition[] {
         ? ZoomControls.configure(options.zoomControls)
         : ZoomControls
     )
+  }
+
+  if (options?.debug !== undefined && options.debug !== false) {
+    extensions.push(Debug.configure(options.debug))
   }
 
   if (options?.exportXMind !== false) {
