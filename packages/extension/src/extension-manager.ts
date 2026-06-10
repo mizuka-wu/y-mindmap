@@ -1,18 +1,18 @@
-import { ExtensionDefinition, ExtensionContext } from './types'
-import { EditorState, Transaction } from '@y-mindmap/state'
-import { EditorView } from '@y-mindmap/view'
+import { ExtensionDefinition, ExtensionContext } from "./types";
+import { EditorState, Transaction } from "@y-mindmap/state";
+import { EditorView } from "@y-mindmap/view";
 
 export class ExtensionManager {
-  private extensions: Map<string, ExtensionDefinition> = new Map()
-  private cleanupFns: Map<string, () => void> = new Map()
-  private eventHandlers: Map<string, Set<(...args: any[]) => void>> = new Map()
-  private ctx: ExtensionContext | null = null
+  private extensions: Map<string, ExtensionDefinition> = new Map();
+  private cleanupFns: Map<string, () => void> = new Map();
+  private eventHandlers: Map<string, Set<(...args: any[]) => void>> = new Map();
+  private ctx: ExtensionContext | null = null;
 
   register(extension: ExtensionDefinition): void {
     if (this.extensions.has(extension.name)) {
-      throw new Error(`Extension ${extension.name} is already registered`)
+      throw new Error(`Extension ${extension.name} is already registered`);
     }
-    this.extensions.set(extension.name, extension)
+    this.extensions.set(extension.name, extension);
   }
 
   setup(
@@ -20,10 +20,25 @@ export class ExtensionManager {
     dispatch: (tr: Transaction) => void,
     view: EditorView | null,
     options?: {
-      executeCommand?: (name: string, args?: any) => boolean
-      registerCommand?: (name: string, command: (state: EditorState, dispatch: (tr: Transaction) => void, args?: any) => boolean) => void
-      unregisterCommand?: (name: string) => void
-    }
+      executeCommand?: (name: string, args?: any) => boolean;
+      registerCommand?: (
+        name: string,
+        command: (
+          state: EditorState,
+          dispatch: (tr: Transaction) => void,
+          args?: any,
+        ) => boolean,
+      ) => void;
+      unregisterCommand?: (name: string) => void;
+      registerPointerHandler?: (handler: {
+        name: string;
+        onPointerDown?: (e: PointerEvent) => boolean | void;
+        onPointerMove?: (e: PointerEvent) => boolean | void;
+        onPointerUp?: (e: PointerEvent) => boolean | void;
+        onPointerCancel?: (e: PointerEvent) => boolean | void;
+        priority?: number;
+      }) => () => void;
+    },
   ): void {
     this.ctx = {
       state,
@@ -35,13 +50,15 @@ export class ExtensionManager {
       on: (event, handler) => this.on(event, handler),
       off: (event, handler) => this.off(event, handler),
       emit: (event, ...args) => this.emit(event, ...args),
-    }
+      registerPointerHandler:
+        options?.registerPointerHandler ?? (() => () => {}),
+    };
 
     for (const [name, ext] of this.extensions) {
       if (ext.setup && this.ctx) {
-        const cleanup = ext.setup(this.ctx, ext.defaultOptions)
+        const cleanup = ext.setup(this.ctx, ext.defaultOptions);
         if (cleanup) {
-          this.cleanupFns.set(name, cleanup)
+          this.cleanupFns.set(name, cleanup);
         }
       }
     }
@@ -49,90 +66,105 @@ export class ExtensionManager {
 
   updateState(state: EditorState): void {
     if (this.ctx) {
-      this.ctx.state = state
+      this.ctx.state = state;
     }
   }
 
   updateView(view: EditorView): void {
     if (this.ctx) {
-      this.ctx.view = view
+      this.ctx.view = view;
     }
   }
 
   on(event: string, handler: (...args: any[]) => void): void {
     if (!this.eventHandlers.has(event)) {
-      this.eventHandlers.set(event, new Set())
+      this.eventHandlers.set(event, new Set());
     }
-    this.eventHandlers.get(event)!.add(handler)
+    this.eventHandlers.get(event)!.add(handler);
   }
 
   off(event: string, handler: (...args: any[]) => void): void {
-    this.eventHandlers.get(event)?.delete(handler)
+    this.eventHandlers.get(event)?.delete(handler);
   }
 
   emit(event: string, ...args: any[]): void {
-    const handlers = this.eventHandlers.get(event)
+    const handlers = this.eventHandlers.get(event);
     if (handlers) {
       for (const handler of handlers) {
         try {
-          handler(...args)
+          handler(...args);
         } catch (error) {
-          console.error(`Error in extension event handler for ${event}:`, error)
+          console.error(
+            `Error in extension event handler for ${event}:`,
+            error,
+          );
         }
       }
     }
   }
 
   getCommands(): Record<string, (...args: any[]) => any> {
-    const commands: Record<string, any> = {}
+    const commands: Record<string, any> = {};
     for (const ext of this.extensions.values()) {
       if (ext.commands) {
-        Object.assign(commands, ext.commands)
+        Object.assign(commands, ext.commands);
       }
     }
-    return commands
+    return commands;
   }
 
-  getMenuItems(): Array<{ id: string; label: string; icon?: string; shortcut?: string; action: () => void }> {
-    const items: Array<{ id: string; label: string; icon?: string; shortcut?: string; action: () => void }> = []
+  getMenuItems(): Array<{
+    id: string;
+    label: string;
+    icon?: string;
+    shortcut?: string;
+    action: () => void;
+  }> {
+    const items: Array<{
+      id: string;
+      label: string;
+      icon?: string;
+      shortcut?: string;
+      action: () => void;
+    }> = [];
     for (const ext of this.extensions.values()) {
       if (ext.menuItems) {
-        items.push(...ext.menuItems)
+        items.push(...ext.menuItems);
       }
     }
-    return items
+    return items;
   }
 
   getExtension(name: string): ExtensionDefinition | undefined {
-    return this.extensions.get(name)
+    return this.extensions.get(name);
   }
 
   has(name: string): boolean {
-    return this.extensions.has(name)
+    return this.extensions.has(name);
   }
 
   destroy(): void {
     for (const [name, cleanup] of this.cleanupFns) {
       try {
-        cleanup()
+        cleanup();
       } catch (error) {
-        console.error(`Error cleaning up extension ${name}:`, error)
+        console.error(`Error cleaning up extension ${name}:`, error);
       }
     }
-    this.cleanupFns.clear()
+    this.cleanupFns.clear();
 
     for (const ext of this.extensions.values()) {
       if (ext.destroy) {
         try {
-          ext.destroy()
+          ext.destroy();
         } catch (error) {
-          console.error(`Error destroying extension ${ext.name}:`, error)
+          console.error(`Error destroying extension ${ext.name}:`, error);
         }
       }
     }
 
-    this.extensions.clear()
-    this.eventHandlers.clear()
-    this.ctx = null
+    this.extensions.clear();
+    this.eventHandlers.clear();
+    this.ctx = null;
   }
 }

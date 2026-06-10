@@ -1,49 +1,88 @@
-import { EditorState, Transaction } from '@y-mindmap/state'
-import { EditorView } from '@y-mindmap/view'
+import { EditorState, Transaction } from "@y-mindmap/state";
+import { EditorView } from "@y-mindmap/view";
 
 // Extension 上下文 — 提供给扩展的编辑器能力
 export interface ExtensionContext {
-  state: EditorState
-  dispatch: (tr: Transaction) => void
-  view: EditorView | null
-  executeCommand: (name: string, args?: any) => boolean
-  registerCommand: (name: string, command: (state: EditorState, dispatch: (tr: Transaction) => void, args?: any) => boolean) => void
-  unregisterCommand: (name: string) => void
+  state: EditorState;
+  dispatch: (tr: Transaction) => void;
+  view: EditorView | null;
+  executeCommand: (name: string, args?: any) => boolean;
+  registerCommand: (
+    name: string,
+    command: (
+      state: EditorState,
+      dispatch: (tr: Transaction) => void,
+      args?: any,
+    ) => boolean,
+  ) => void;
+  unregisterCommand: (name: string) => void;
 
-  on: (event: string, handler: (...args: any[]) => void) => void
-  off: (event: string, handler: (...args: any[]) => void) => void
-  emit: (event: string, ...args: any[]) => void
+  on: (event: string, handler: (...args: any[]) => void) => void;
+  off: (event: string, handler: (...args: any[]) => void) => void;
+  emit: (event: string, ...args: any[]) => void;
+
+  /**
+   * 注册 pointer 事件处理器（通过 PointerEventBus）。
+   * 返回的函数用于注销该处理器。
+   */
+  registerPointerHandler: (handler: {
+    name: string;
+    onPointerDown?: (e: PointerEvent) => boolean | void;
+    onPointerMove?: (e: PointerEvent) => boolean | void;
+    onPointerUp?: (e: PointerEvent) => boolean | void;
+    onPointerCancel?: (e: PointerEvent) => boolean | void;
+    priority?: number;
+  }) => () => void;
 }
 
 // Extension 选项类型
-export type ExtensionOptions<T extends Record<string, any> = {}> = Omit<T, 'enabled'> & {
-  enabled?: boolean
-}
+export type ExtensionOptions<T extends Record<string, any> = {}> = Omit<
+  T,
+  "enabled"
+> & {
+  enabled?: boolean;
+};
 
 // Extension 定义
 export interface ExtensionDefinition<T extends Record<string, any> = {}> {
-  name: string
-  type: 'block' | 'mark' | 'node' | 'behavior' | 'collaboration'
+  name: string;
+  type: "block" | "mark" | "node" | "behavior" | "collaboration";
 
   // 默认选项
-  defaultOptions: ExtensionOptions<T>
+  defaultOptions: ExtensionOptions<T>;
 
   // 配置选项，返回新的扩展定义（immutable）
-  configure: (options: Partial<ExtensionOptions<T>>) => ExtensionDefinition<T>
+  configure: (options: Partial<ExtensionOptions<T>>) => ExtensionDefinition<T>;
 
   // 生命周期
-  setup?: (ctx: ExtensionContext, options: ExtensionOptions<T>) => void | (() => void)
-  destroy?: () => void
+  setup?: (
+    ctx: ExtensionContext,
+    options: ExtensionOptions<T>,
+  ) => void | (() => void);
+  destroy?: () => void;
 
   // 可扩展点
-  commands?: Record<string, (args?: any) => (state: EditorState, dispatch: (tr: Transaction) => void) => boolean>
-  shortcuts?: Record<string, string>  // key → command name
-  menuItems?: Array<{ id: string; label: string; icon?: string; shortcut?: string; action: () => void }>
+  commands?: Record<
+    string,
+    (
+      args?: any,
+    ) => (state: EditorState, dispatch: (tr: Transaction) => void) => boolean
+  >;
+  shortcuts?: Record<string, string>; // key → command name
+  menuItems?: Array<{
+    id: string;
+    label: string;
+    icon?: string;
+    shortcut?: string;
+    action: () => void;
+  }>;
 }
 
 // 创建 Extension 的工厂函数
 export function createExtension<T extends Record<string, any> = {}>(
-  definition: Omit<ExtensionDefinition<T>, 'configure'> & { defaultOptions: ExtensionOptions<T> }
+  definition: Omit<ExtensionDefinition<T>, "configure"> & {
+    defaultOptions: ExtensionOptions<T>;
+  },
 ): ExtensionDefinition<T> {
   const {
     name,
@@ -54,7 +93,7 @@ export function createExtension<T extends Record<string, any> = {}>(
     commands,
     shortcuts,
     menuItems,
-  } = definition
+  } = definition;
 
   const extension: ExtensionDefinition<T> = {
     name,
@@ -65,8 +104,11 @@ export function createExtension<T extends Record<string, any> = {}>(
     menuItems,
 
     configure(options: Partial<ExtensionOptions<T>>): ExtensionDefinition<T> {
-      const mergedOptions = { ...defaultOptions, ...options } as ExtensionOptions<T>
-      const isDisabled = mergedOptions.enabled === false
+      const mergedOptions = {
+        ...defaultOptions,
+        ...options,
+      } as ExtensionOptions<T>;
+      const isDisabled = mergedOptions.enabled === false;
 
       return {
         name,
@@ -80,26 +122,29 @@ export function createExtension<T extends Record<string, any> = {}>(
         setup: isDisabled
           ? undefined
           : (ctx: ExtensionContext, opts: ExtensionOptions<T>) => {
-              const finalOpts = { ...mergedOptions, ...opts }
-              return userSetup?.(ctx, finalOpts) ?? undefined
+              const finalOpts = { ...mergedOptions, ...opts };
+              return userSetup?.(ctx, finalOpts) ?? undefined;
             },
 
         destroy: isDisabled ? undefined : userDestroy,
 
         // Recursively allow re-configure
-        configure(nextOptions: Partial<ExtensionOptions<T>>): ExtensionDefinition<T> {
-          return extension.configure({ ...options, ...nextOptions })
+        configure(
+          nextOptions: Partial<ExtensionOptions<T>>,
+        ): ExtensionDefinition<T> {
+          return extension.configure({ ...options, ...nextOptions });
         },
-      }
+      };
     },
 
     // Default setup/destroy delegate to user implementations
     setup: userSetup
-      ? (ctx: ExtensionContext, options: ExtensionOptions<T>) => userSetup(ctx, options)
+      ? (ctx: ExtensionContext, options: ExtensionOptions<T>) =>
+          userSetup(ctx, options)
       : undefined,
 
     destroy: userDestroy,
-  }
+  };
 
-  return extension
+  return extension;
 }

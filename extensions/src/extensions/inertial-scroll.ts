@@ -1,23 +1,23 @@
-import { createExtension } from '@y-mindmap/extension'
-import { InertialScroll as InertialScrollHandler } from '@y-mindmap/interaction'
+import { createExtension } from "@y-mindmap/extension";
+import { InertialScroll as InertialScrollHandler } from "@y-mindmap/interaction";
 
 export interface InertialScrollOptions {
   /**
    * 摩擦系数，控制减速速度 (0-1)
    * @default 0.95
    */
-  friction?: number
+  friction?: number;
 
   /**
    * 触发惯性滚动的速度阈值
    * @default 0.5
    */
-  threshold?: number
+  threshold?: number;
 }
 
 export const InertialScroll = createExtension<InertialScrollOptions>({
   name: "extension-inertial-scroll",
-  type: 'behavior',
+  type: "behavior",
 
   defaultOptions: {
     friction: 0.95,
@@ -26,44 +26,61 @@ export const InertialScroll = createExtension<InertialScrollOptions>({
   },
 
   setup(ctx, options) {
-    if (!ctx.view) return
+    if (!ctx.view) return;
 
-    
-    const container = ctx.view!.getDom()
-    if (!container) return
+    const container = ctx.view!.getDom();
+    if (!container) return;
 
     const inertialScroll = new InertialScrollHandler(
       (dx, dy) => {
-        ctx.view!.panBy(dx, dy)
+        ctx.view!.panBy(dx, dy);
       },
       {
         friction: options.friction,
         minVelocity: options.threshold,
-      }
-    )
+      },
+    );
 
-    const onDown = (e: PointerEvent) => {
-      inertialScroll.stop()
-      inertialScroll.record(e.clientX, e.clientY)
-    }
+    const onPointerDown = (e: PointerEvent): boolean | void => {
+      inertialScroll.stop();
+      inertialScroll.record(e.clientX, e.clientY);
+      return false;
+    };
 
-    const onMove = (e: PointerEvent) => {
-      inertialScroll.record(e.clientX, e.clientY)
-    }
+    const onPointerMove = (e: PointerEvent): boolean | void => {
+      inertialScroll.record(e.clientX, e.clientY);
+      return false;
+    };
 
-    const onUp = () => {
-      inertialScroll.start()
-    }
+    const onPointerUp = (): boolean | void => {
+      inertialScroll.start();
+      return false;
+    };
 
-    container.addEventListener('pointerdown', onDown)
-    container.addEventListener('pointermove', onMove)
-    container.addEventListener('pointerup', onUp)
+    const onBoxSelectStart = () => {
+      inertialScroll.pause();
+    };
+
+    const onBoxSelectEnd = () => {
+      inertialScroll.resume();
+    };
+
+    const unregister = ctx.registerPointerHandler({
+      name: "inertial-scroll",
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      priority: 1,
+    });
+
+    ctx.on("boxselect:start", onBoxSelectStart);
+    ctx.on("boxselect:end", onBoxSelectEnd);
 
     return () => {
-      inertialScroll.stop()
-      container.removeEventListener('pointerdown', onDown)
-      container.removeEventListener('pointermove', onMove)
-      container.removeEventListener('pointerup', onUp)
-    }
+      inertialScroll.stop();
+      unregister();
+      ctx.off("boxselect:start", onBoxSelectStart);
+      ctx.off("boxselect:end", onBoxSelectEnd);
+    };
   },
-})
+});

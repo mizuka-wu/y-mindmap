@@ -83,8 +83,42 @@ export const DragDrop = createExtension<DragDropOptions>({
       return null;
     }
 
-    const onPointerMove = (e: PointerEvent) => {
-      if (!dragSourceId || !dragPreviewView || !dragStartPosition) return;
+    const onPointerDown = (e: PointerEvent): boolean | void => {
+      if (e.button !== 0) return false;
+      if (!ctx.state) return false;
+      if (isDragging || dragSourceId) return false;
+
+      const worldPoint = view.clientToWorld(e.clientX, e.clientY);
+      const nodeId = view.getNodeAtPoint(worldPoint);
+
+      if (!nodeId) return false;
+
+      const node = ctx.state.doc.getNodeById(nodeId);
+      if (!node || node.isRoot) return false;
+
+      const sourceView = view.getTopicView(nodeId);
+      if (!sourceView) return false;
+
+      isDragging = false;
+      dragSourceId = nodeId;
+      dragStartPosition = { ...worldPoint };
+
+      const sourceBounds = sourceView.getBounds();
+
+      const srcNode = ctx.state.doc.getNodeById(nodeId)!;
+      dragPreviewView = new DragPreviewView(srcNode);
+      dropIndicatorView = new DropIndicatorView(srcNode);
+
+      dragPreviewView.show(sourceBounds.width, sourceBounds.height);
+
+      overlayLayer.add(dragPreviewView.group);
+      overlayLayer.add(dropIndicatorView.group);
+
+      return true;
+    };
+
+    const onPointerMove = (e: PointerEvent): boolean | void => {
+      if (!dragSourceId || !dragPreviewView || !dragStartPosition) return false;
 
       const currentWorldPoint = view.clientToWorld(e.clientX, e.clientY);
       const sourceId = dragSourceId;
@@ -116,12 +150,14 @@ export const DragDrop = createExtension<DragDropOptions>({
         } else if (dropIndicatorView) {
           dropIndicatorView.hide();
         }
+        return true;
       }
+
+      return false;
     };
 
-    const onPointerUp = (e: PointerEvent) => {
-      document.removeEventListener("pointermove", onPointerMove);
-      document.removeEventListener("pointerup", onPointerUp);
+    const onPointerUp = (e: PointerEvent): boolean | void => {
+      const wasDragging = isDragging;
 
       if (isDragging && dragSourceId && ctx.state) {
         const currentWorldPoint = view.clientToWorld(e.clientX, e.clientY);
@@ -184,49 +220,20 @@ export const DragDrop = createExtension<DragDropOptions>({
       isDragging = false;
       dragSourceId = null;
       dragStartPosition = null;
+
+      return wasDragging || false;
     };
 
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
-      if (!ctx.state) return;
-      if (isDragging || dragSourceId) return;
-
-      const worldPoint = view.clientToWorld(e.clientX, e.clientY);
-      const nodeId = view.getNodeAtPoint(worldPoint);
-
-      if (!nodeId) return;
-
-      const node = ctx.state.doc.getNodeById(nodeId);
-      if (!node || node.isRoot) return;
-
-      const sourceView = view.getTopicView(nodeId);
-      if (!sourceView) return;
-
-      isDragging = false;
-      dragSourceId = nodeId;
-      dragStartPosition = { ...worldPoint };
-
-      const sourceBounds = sourceView.getBounds();
-
-      const srcNode = ctx.state.doc.getNodeById(nodeId)!;
-      dragPreviewView = new DragPreviewView(srcNode);
-      dropIndicatorView = new DropIndicatorView(srcNode);
-
-      dragPreviewView.show(sourceBounds.width, sourceBounds.height);
-
-      overlayLayer.add(dragPreviewView.group);
-      overlayLayer.add(dropIndicatorView.group);
-
-      document.addEventListener("pointermove", onPointerMove);
-      document.addEventListener("pointerup", onPointerUp);
-    };
-
-    container.addEventListener("pointerdown", onPointerDown);
+    const unregister = ctx.registerPointerHandler({
+      name: "drag-drop",
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      priority: 20,
+    });
 
     return () => {
-      container.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("pointermove", onPointerMove);
-      document.removeEventListener("pointerup", onPointerUp);
+      unregister();
       cleanupDragVisuals();
       if (dragSourceId) {
         const srcView = view.getTopicView(dragSourceId);

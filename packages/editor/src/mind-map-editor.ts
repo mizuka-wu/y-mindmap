@@ -37,6 +37,7 @@ import {
 } from "@y-mindmap/commands";
 import {
   InteractionManager,
+  PointerEventBus,
   createSelectHandler,
   createDragHandler,
   createZoomHandler,
@@ -137,6 +138,7 @@ export class MindMapEditor {
   private collabManager: CollabManager | null = null;
   private pluginManager: PluginManager;
   private extensionManager: ExtensionManager;
+  private pointerBus: PointerEventBus;
   private uiContext: UIContext;
 
   constructor(options: MindMapEditorOptions) {
@@ -257,6 +259,8 @@ export class MindMapEditor {
       }
     }
 
+    this.pointerBus = new PointerEventBus();
+
     this.extensionManager = new ExtensionManager();
     const defaultExts = [
       DragDrop,
@@ -298,6 +302,7 @@ export class MindMapEditor {
           });
         },
         unregisterCommand: (name) => this.commandRegistry.unregister(name),
+        registerPointerHandler: (handler) => this.pointerBus.register(handler),
       },
     );
 
@@ -310,10 +315,10 @@ export class MindMapEditor {
 
     // Center content after first layout
     const onFirstLayout = () => {
-      this.view.off('layout:done', onFirstLayout);
+      this.view.off("layout:done", onFirstLayout);
       this.fitToContent();
     };
-    this.view.on('layout:done', onFirstLayout);
+    this.view.on("layout:done", onFirstLayout);
   }
 
   get isCollaborating(): boolean {
@@ -849,7 +854,10 @@ export class MindMapEditor {
         } else if (name.endsWith(".md")) {
           this.loadMarkdownFile(file).catch(console.error);
         } else if (name.endsWith(".json")) {
-          file.text().then((text) => this.loadJSON(text)).catch(console.error);
+          file
+            .text()
+            .then((text) => this.loadJSON(text))
+            .catch(console.error);
         }
         return true;
       },
@@ -885,7 +893,10 @@ export class MindMapEditor {
     );
   }
 
-  private _getNodeIdAtClient(clientX: number, clientY: number): string | undefined {
+  private _getNodeIdAtClient(
+    clientX: number,
+    clientY: number,
+  ): string | undefined {
     try {
       const worldPoint = this.view.clientToWorld(clientX, clientY);
       return this.view.getNodeAtPoint(worldPoint) || undefined;
@@ -895,6 +906,8 @@ export class MindMapEditor {
   }
 
   private bindDOMEvents(): void {
+    this.pointerBus.bindTo(this.container);
+
     this.container.addEventListener("click", (e) => {
       const nodeId = this._getNodeIdAtClient(e.clientX, e.clientY);
 

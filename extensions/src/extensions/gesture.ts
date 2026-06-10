@@ -56,26 +56,35 @@ export const Gesture = createExtension<GestureOptions>({
       }
     });
 
-    const onDown = (e: PointerEvent) =>
+    const onPointerDown = (e: PointerEvent): boolean | void => {
       recognizer.handlePointerDown(e.pointerId, e.clientX, e.clientY);
-    const onMove = (e: PointerEvent) =>
+      return false;
+    };
+    const onPointerMove = (e: PointerEvent): boolean | void => {
       recognizer.handlePointerMove(e.pointerId, e.clientX, e.clientY);
-    const onUp = (e: PointerEvent) =>
+      return false;
+    };
+    const onPointerUp = (e: PointerEvent): boolean | void => {
       recognizer.handlePointerUp(e.pointerId, e.clientX, e.clientY);
-    const onCancel = (e: PointerEvent) =>
+      return false;
+    };
+    const onPointerCancel = (e: PointerEvent): boolean | void => {
       recognizer.handlePointerCancel(e.pointerId);
+      return false;
+    };
 
-    container.addEventListener("pointerdown", onDown);
-    container.addEventListener("pointermove", onMove);
-    container.addEventListener("pointerup", onUp);
-    container.addEventListener("pointercancel", onCancel);
+    const unregister = ctx.registerPointerHandler({
+      name: "gesture",
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      onPointerCancel,
+      priority: 5,
+    });
 
     return () => {
       recognizer.reset();
-      container.removeEventListener("pointerdown", onDown);
-      container.removeEventListener("pointermove", onMove);
-      container.removeEventListener("pointerup", onUp);
-      container.removeEventListener("pointercancel", onCancel);
+      unregister();
     };
   },
 });

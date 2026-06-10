@@ -56,8 +56,38 @@ export const BoxSelect = createExtension({
       }
     }
 
-    const onBoxSelectMove = (e: PointerEvent) => {
-      if (!boxSelectStartPoint || !boxSelectRect) return;
+    const onPointerDown = (e: PointerEvent): boolean | void => {
+      if (e.button !== 0) return false;
+      if (!ctx.state) return false;
+
+      const worldPoint = view.clientToWorld(e.clientX, e.clientY);
+      const nodeId = view.getNodeAtPoint(worldPoint);
+
+      if (nodeId) return false;
+
+      ctx.emit("boxselect:start");
+
+      boxSelectStartPoint = { ...worldPoint };
+      isBoxSelecting = false;
+
+      const selectionRect = new Rect({
+        x: worldPoint.x,
+        y: worldPoint.y,
+        width: 0,
+        height: 0,
+        stroke: "#4A90D9",
+        strokeWidth: 1,
+        dashPattern: [4, 4],
+        fill: "rgba(74, 144, 217, 0.1)",
+      });
+      overlayLayer.add(selectionRect);
+      boxSelectRect = selectionRect;
+
+      return false;
+    };
+
+    const onPointerMove = (e: PointerEvent): boolean | void => {
+      if (!boxSelectStartPoint || !boxSelectRect) return false;
 
       const currentPoint = view.clientToWorld(e.clientX, e.clientY);
       const start = boxSelectStartPoint;
@@ -72,14 +102,14 @@ export const BoxSelect = createExtension({
       if (width > 2 || height > 2) {
         isBoxSelecting = true;
         setOutsideBoxSelectNodesForcedInvisible({ x, y, width, height });
+        return true;
       }
+
+      return false;
     };
 
-    const onBoxSelectUp = (e: PointerEvent) => {
-      document.removeEventListener("pointermove", onBoxSelectMove);
-      document.removeEventListener("pointerup", onBoxSelectUp);
-
-      restoreAllNodesVisibility();
+    const onPointerUp = (e: PointerEvent): boolean | void => {
+      const wasBoxSelecting = isBoxSelecting;
 
       if (isBoxSelecting && boxSelectRect && ctx.state) {
         const rect = boxSelectRect;
@@ -107,49 +137,30 @@ export const BoxSelect = createExtension({
         }
       }
 
+      restoreAllNodesVisibility();
+
       if (boxSelectRect) {
         boxSelectRect.remove();
         boxSelectRect = null;
       }
       boxSelectStartPoint = null;
       isBoxSelecting = false;
+
+      ctx.emit("boxselect:end");
+
+      return wasBoxSelecting || false;
     };
 
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
-      if (!ctx.state) return;
-
-      const worldPoint = view.clientToWorld(e.clientX, e.clientY);
-      const nodeId = view.getNodeAtPoint(worldPoint);
-
-      if (nodeId) return;
-
-      boxSelectStartPoint = { ...worldPoint };
-      isBoxSelecting = false;
-
-      const selectionRect = new Rect({
-        x: worldPoint.x,
-        y: worldPoint.y,
-        width: 0,
-        height: 0,
-        stroke: "#4A90D9",
-        strokeWidth: 1,
-        dashPattern: [4, 4],
-        fill: "rgba(74, 144, 217, 0.1)",
-      });
-      overlayLayer.add(selectionRect);
-      boxSelectRect = selectionRect;
-
-      document.addEventListener("pointermove", onBoxSelectMove);
-      document.addEventListener("pointerup", onBoxSelectUp);
-    };
-
-    container.addEventListener("pointerdown", onPointerDown);
+    const unregister = ctx.registerPointerHandler({
+      name: "box-select",
+      onPointerDown,
+      onPointerMove,
+      onPointerUp,
+      priority: 10,
+    });
 
     return () => {
-      container.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("pointermove", onBoxSelectMove);
-      document.removeEventListener("pointerup", onBoxSelectUp);
+      unregister();
       restoreAllNodesVisibility();
       if (boxSelectRect) {
         boxSelectRect.remove();
