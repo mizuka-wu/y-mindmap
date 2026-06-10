@@ -13,6 +13,22 @@ const editor = new MindMapEditor({
 });
 (window as any).editor = editor;
 
+// ── Auto-load bundled demo.xmind ──
+fetch("./demo.xmind")
+  .then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.arrayBuffer();
+  })
+  .then((buf) => {
+    const file = new File([buf], "demo.xmind", {
+      type: "application/vnd.xmind.workbook",
+    });
+    return editor.loadXMindFile(file);
+  })
+  .catch((err) => {
+    console.warn("自动加载 demo.xmind 失败:", err.message);
+  });
+
 // ── Floating Toolbar ──
 container.insertAdjacentHTML(
   "beforebegin",
