@@ -267,12 +267,12 @@ export class MindMapEditor {
     }
 
     this.extensionManager = new ExtensionManager();
-    const defaultExts: ExtensionDefinition[] = [
+    const defaultExts = [
       DragDrop,
       ContextMenu,
       BoxSelect,
       RichTextEdit,
-    ];
+    ] as any[];
     for (const ext of defaultExts) {
       if (!this.extensionManager.has(ext.name)) {
         this.extensionManager.register(ext);
@@ -746,9 +746,7 @@ export class MindMapEditor {
 
   isEditing(): boolean {
     return (
-      this.view.isEditing() ||
-      this.inlineEditor.isEditing() ||
-      this.richTextInlineEditor.isEditing()
+      this.inlineEditor.isEditing() || this.richTextInlineEditor.isEditing()
     );
   }
 
@@ -885,10 +883,12 @@ export class MindMapEditor {
     this.interactionManager.addHandler(createBoxSelectHandler());
     this.interactionManager.addHandler(
       createRichTextEditHandler({
-        isEditing: () => this.view.isEditing(),
-        getEditingNodeId: () => this.view.getEditingNodeId(),
-        startEditing: (nodeId) => this.view.startEditing(nodeId),
-        stopEditing: (save) => this.view.stopEditing(save),
+        isEditing: () => this.isEditing(),
+        getEditingNodeId: () =>
+          this.inlineEditor.getEditingNodeId() ||
+          this.richTextInlineEditor.getEditingNodeId(),
+        startEditing: (nodeId) => this.startEditing(nodeId),
+        stopEditing: () => this.stopEditing(),
       }),
     );
     this.interactionManager.addHandler(
@@ -1139,7 +1139,6 @@ export class MindMapEditor {
     this.pluginManager.destroy();
     this.collabManager?.destroy();
     this.binding?.destroy();
-    this.view.stopEditing(false);
     this.richTextInlineEditor.dispose();
     this.inlineEditor.dispose();
     this.view.destroy();
