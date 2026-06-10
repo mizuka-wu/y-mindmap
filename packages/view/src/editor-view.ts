@@ -64,6 +64,29 @@ export class EditorView {
 
   private _themeUnsubscribe: (() => void) | null = null;
   private _hoveredNodeId: string | null = null;
+
+  private _listeners = new Map<string, Set<(...args: any[]) => void>>();
+
+  on(event: string, handler: (...args: any[]) => void): void {
+    if (!this._listeners.has(event)) {
+      this._listeners.set(event, new Set());
+    }
+    this._listeners.get(event)!.add(handler);
+  }
+
+  off(event: string, handler: (...args: any[]) => void): void {
+    this._listeners.get(event)?.delete(handler);
+  }
+
+  private emit(event: string, ...args: any[]): void {
+    const handlers = this._listeners.get(event);
+    if (handlers) {
+      for (const handler of handlers) {
+        try { handler(...args); } catch (e) { console.error(e); }
+      }
+    }
+  }
+
   constructor(config: EditorViewConfig) {
     this.container = config.container;
     this.layoutEngine = config.layoutEngine || new MapLayoutEngine();
@@ -264,6 +287,7 @@ export class EditorView {
       this._isUpdating = false;
     }
 
+    this.emit('layout:done');
   }
 
   private validateViews(node: MindMapNode): void {

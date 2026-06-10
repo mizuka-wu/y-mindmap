@@ -309,7 +309,11 @@ export class MindMapEditor {
     this.bindDOMEvents();
 
     // Center content after first layout
-    requestAnimationFrame(() => this.fitToContent());
+    const onFirstLayout = () => {
+      this.view.off('layout:done', onFirstLayout);
+      this.fitToContent();
+    };
+    this.view.on('layout:done', onFirstLayout);
   }
 
   get isCollaborating(): boolean {
