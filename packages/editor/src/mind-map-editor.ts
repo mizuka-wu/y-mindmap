@@ -924,17 +924,16 @@ export class MindMapEditor {
 
     this.container.addEventListener("wheel", (e) => {
       e.preventDefault();
-      this.interactionManager.handleEvent({
-        type: "wheel",
-        deltaX: e.deltaX,
-        deltaY: e.deltaY,
-        modifiers: {
-          ctrl: e.ctrlKey,
-          shift: e.shiftKey,
-          alt: e.altKey,
-          meta: e.metaKey,
-        },
-      });
+      if (e.ctrlKey || e.metaKey) {
+        // Pinch-to-zoom: deltaY > 0 means zoom out
+        const factor = e.deltaY > 0 ? 0.9 : 1.1;
+        const currentZoom = this.view.getZoom();
+        const newZoom = Math.max(0.1, Math.min(10, currentZoom * factor));
+        this.view.zoomTo(newZoom);
+      } else {
+        // Pan
+        this.view.panBy(-e.deltaX, -e.deltaY);
+      }
     });
 
     this.container.addEventListener("pointerdown", (e) => {

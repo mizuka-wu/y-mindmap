@@ -69,7 +69,7 @@ export const BoxSelect = createExtension({
 
       boxSelectRect.set({ x, y, width, height });
 
-      if (!isBoxSelecting && (width > 2 || height > 2)) {
+      if (width > 2 || height > 2) {
         isBoxSelecting = true;
         setOutsideBoxSelectNodesForcedInvisible({ x, y, width, height });
       }

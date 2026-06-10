@@ -64,6 +64,7 @@ export class EditorView {
 
   private _themeUnsubscribe: (() => void) | null = null;
   private _hoveredNodeId: string | null = null;
+  private _hasInitialFit = false;
 
   constructor(config: EditorViewConfig) {
     this.container = config.container;
@@ -263,6 +264,11 @@ export class EditorView {
       this._pendingDirtyNodeIds.clear();
     } finally {
       this._isUpdating = false;
+    }
+
+    if (!this._hasInitialFit && this._rootView) {
+      this._hasInitialFit = true;
+      this.fitToContent();
     }
   }
 
