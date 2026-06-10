@@ -275,12 +275,12 @@ export class EditorView {
         }
       }
 
+      this.updateSelection();
       this.validateViews(root);
       if (!this._isAnimating) {
         this.updateConnectionViews();
       }
       this.updateRelationshipViews();
-      this.updateSelection();
 
       this._pendingDirtyNodeIds.clear();
     } finally {

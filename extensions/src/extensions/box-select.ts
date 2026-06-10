@@ -50,7 +50,7 @@ export const BoxSelect = createExtension({
       };
 
       for (const [, topicView] of view.getAllTopicViews()) {
-        const bounds = topicView.getBounds();
+        const bounds = topicView.getAbsoluteBounds();
         const isInside = rectsIntersect(expandedBox, bounds);
         topicView.setForcedInvisible(!isInside);
       }
@@ -94,7 +94,7 @@ export const BoxSelect = createExtension({
         for (const [, topicView] of view.getAllTopicViews()) {
           if (!topicView.isVisible() || topicView.isForcedInvisible()) continue;
 
-          const bounds = topicView.getBounds();
+          const bounds = topicView.getAbsoluteBounds();
           if (bounds && rectsIntersect(rectBounds, bounds as any)) {
             selectedNodeIds.push(topicView.nodeId);
           }
