@@ -16,7 +16,7 @@ export interface ExtensionContext {
 }
 
 // Extension 选项类型
-export type ExtensionOptions<T extends Record<string, any> = {}> = T & {
+export type ExtensionOptions<T extends Record<string, any> = {}> = Omit<T, 'enabled'> & {
   enabled?: boolean
 }
 

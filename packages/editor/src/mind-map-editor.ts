@@ -47,8 +47,6 @@ import {
   createRichTextEditHandler,
   InlineEditor,
   RichTextInlineEditor,
-  InertialScroll,
-  GestureRecognizer,
 } from "@y-mindmap/interaction";
 import { UIManager, UIContext } from "@y-mindmap/ui";
 import { XMindImporter, XMindExporter } from "@y-mindmap/formats/xmind";
@@ -85,6 +83,12 @@ import {
   ContextMenu,
   BoxSelect,
   RichTextEdit,
+  ZoomControls,
+  Minimap,
+  Keymap,
+  Clipboard,
+  InertialScroll as InertialScrollExt,
+  Gesture,
 } from "@y-mindmap/extensions";
 
 export interface MindMapEditorOptions {
@@ -96,10 +100,8 @@ export interface MindMapEditorOptions {
   showToolbar?: boolean;
   showPropertyPanel?: boolean;
   showStatusBar?: boolean;
-  showMiniMap?: boolean;
-  enableInertialScroll?: boolean;
-  enableGestures?: boolean;
   enableRichText?: boolean;
+  showMiniMap?: boolean;
   ydoc?: Y.Doc;
   user?: CollaboratorUser;
   collab?: CollabOptions;
@@ -119,9 +121,6 @@ export class MindMapEditor {
 
   private inlineEditor: InlineEditor;
   private richTextInlineEditor: RichTextInlineEditor;
-  private inertialScroll: InertialScroll | null = null;
-  private gestureRecognizer: GestureRecognizer | null = null;
-  private documentKeyDownHandler: ((e: KeyboardEvent) => void) | null = null;
   private xmindImporter: XMindImporter;
   private xmindExporter: XMindExporter;
   private markdownImporter: MarkdownImporter;
@@ -240,14 +239,6 @@ export class MindMapEditor {
     this.svgExporter = new SVGExporter();
     this.pdfExporter = new PDFExporter();
 
-    if (options.enableInertialScroll !== false) {
-      this.initInertialScroll();
-    }
-
-    if (options.enableGestures !== false) {
-      this.initGestures();
-    }
-
     if (options.ydoc && options.user) {
       this.initCollaboration(options.ydoc, options.user);
     }
@@ -272,7 +263,14 @@ export class MindMapEditor {
       ContextMenu,
       BoxSelect,
       RichTextEdit,
-    ] as any[];
+      ZoomControls,
+      Minimap,
+      Keymap,
+      Clipboard,
+      InertialScrollExt,
+      Gesture,
+    ];
+
     for (const ext of defaultExts) {
       if (!this.extensionManager.has(ext.name)) {
         this.extensionManager.register(ext);
@@ -797,57 +795,6 @@ export class MindMapEditor {
     return this.view.getViewportBounds();
   }
 
-  private initInertialScroll(): void {
-    this.inertialScroll = new InertialScroll((dx, dy) => {
-      this.view.panBy(dx, dy);
-    });
-  }
-
-  private initGestures(): void {
-    this.gestureRecognizer = new GestureRecognizer((event) => {
-      switch (event.type) {
-        case "pinch":
-          if (event.scale) {
-            const currentZoom = this.view.getZoom();
-            this.view.zoomTo(currentZoom * event.scale);
-          }
-          break;
-
-        case "pan":
-          if (event.deltaX !== undefined && event.deltaY !== undefined) {
-            this.view.panBy(event.deltaX, event.deltaY);
-          }
-          break;
-
-        case "tap":
-          if (event.center) {
-            const worldPoint = this.view.clientToWorld(
-              event.center.x,
-              event.center.y,
-            );
-            const nodeId = this.view.getNodeAtPoint(worldPoint);
-            if (nodeId) {
-              this.selectNode(nodeId);
-            }
-          }
-          break;
-
-        case "doubletap":
-          if (event.center) {
-            const worldPoint = this.view.clientToWorld(
-              event.center.x,
-              event.center.y,
-            );
-            const nodeId = this.view.getNodeAtPoint(worldPoint);
-            if (nodeId) {
-              this.startEditing(nodeId);
-            }
-          }
-          break;
-      }
-    });
-  }
-
   private registerDefaultCommands(): void {
     this.commandRegistry.register("addSubTopic", addSubTopic());
     this.commandRegistry.register("addSiblingTopic", addSiblingTopic());
@@ -942,8 +889,6 @@ export class MindMapEditor {
       const target = e.target as HTMLElement;
       const nodeEl = target.closest("[data-node-id]");
       const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
-
-      this.uiManager.showContextMenu({ x: e.clientX, y: e.clientY }, nodeId);
     });
 
     this.container.addEventListener("wheel", (e) => {
@@ -978,17 +923,6 @@ export class MindMapEditor {
         },
         button: e.button,
       });
-
-      this.gestureRecognizer?.handlePointerDown(
-        e.pointerId,
-        e.clientX,
-        e.clientY,
-      );
-
-      if (this.inertialScroll) {
-        this.inertialScroll.stop();
-        this.inertialScroll.record(e.clientX, e.clientY);
-      }
     });
 
     this.container.addEventListener("pointermove", (e) => {
@@ -1007,16 +941,6 @@ export class MindMapEditor {
           meta: e.metaKey,
         },
       });
-
-      this.gestureRecognizer?.handlePointerMove(
-        e.pointerId,
-        e.clientX,
-        e.clientY,
-      );
-
-      if (this.inertialScroll) {
-        this.inertialScroll.record(e.clientX, e.clientY);
-      }
     });
 
     this.container.addEventListener("pointerup", (e) => {
@@ -1035,44 +959,11 @@ export class MindMapEditor {
           meta: e.metaKey,
         },
       });
-
-      this.gestureRecognizer?.handlePointerUp(
-        e.pointerId,
-        e.clientX,
-        e.clientY,
-      );
-
-      if (this.inertialScroll) {
-        this.inertialScroll.start();
-      }
     });
 
     this.container.addEventListener("pointercancel", (e) => {
       this.interactionManager.handleEvent({ type: "pointercancel" });
-      this.gestureRecognizer?.handlePointerCancel(e.pointerId);
     });
-
-    this.documentKeyDownHandler = (e: KeyboardEvent) => {
-      if (
-        this.container.contains(document.activeElement) ||
-        document.activeElement === this.container
-      ) {
-        const key = e.key;
-        const modifiers = {
-          ctrl: e.ctrlKey,
-          shift: e.shiftKey,
-          alt: e.altKey,
-          meta: e.metaKey,
-        };
-
-        this.interactionManager.handleEvent({
-          type: "keydown",
-          key,
-          modifiers,
-        });
-      }
-    };
-    document.addEventListener("keydown", this.documentKeyDownHandler);
   }
 
   use(plugin: Plugin): void {
@@ -1143,11 +1034,5 @@ export class MindMapEditor {
     this.inlineEditor.dispose();
     this.view.destroy();
     this.uiManager.destroy();
-    this.inertialScroll?.stop();
-    this.gestureRecognizer?.reset();
-    if (this.documentKeyDownHandler) {
-      document.removeEventListener("keydown", this.documentKeyDownHandler);
-      this.documentKeyDownHandler = null;
-    }
   }
 }
