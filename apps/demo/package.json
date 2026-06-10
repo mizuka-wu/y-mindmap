@@ -16,10 +16,6 @@
   "dependencies": {
     "@y-mindmap/vanilla": "workspace:*",
     "@y-mindmap/editor": "workspace:*",
-    "@y-mindmap/state": "workspace:*",
-    "@y-mindmap/extensions": "workspace:*",
-    "@y-mindmap/extension": "workspace:*",
-    "yjs": "^13.6.0",
-    "y-websocket": "^2.0.0"
+    "@y-mindmap/state": "workspace:*"
   }
 }
