@@ -831,7 +831,7 @@ export class FishboneLayoutEngine implements LayoutEngine {
     const mainLineLength = children.length * 60;
     const mainLineY = parentLayout.y + parentLayout.height / 2;
 
-    let currentX = parentLayout.x + parentLayout.width + 20;
+    const currentX = parentLayout.x + parentLayout.width + 20;
 
     for (let i = 0; i < children.length; i++) {
       const child = children[i];

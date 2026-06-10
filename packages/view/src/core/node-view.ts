@@ -117,6 +117,7 @@ export abstract class NodeView {
   validate(): void {
     this.validateLayout()
     this.validatePaint()
+    this._dirtyFlags = DirtyFlag.NONE
   }
   
   isDirty(flags?: DirtyFlag): boolean {
@@ -257,7 +258,8 @@ export abstract class NodeView {
   setForcedInvisible(forcedInvisible: boolean): void {
     if (this._isForcedInvisible === forcedInvisible) return
     this._isForcedInvisible = forcedInvisible
-    this.setVisible(this._isVisible)
+    this.group.visible = this._isVisible && !this._isForcedInvisible
+    this.invalidatePaint()
   }
 
   setVisible(visible: boolean): void {

@@ -136,7 +136,7 @@ export class FilterEngine {
     predicate: FilterPredicate,
     options: FilterOptions
   ): boolean {
-    let matches = predicate(node)
+    const matches = predicate(node)
     let hasMatchingDescendant = false
 
     const children = node.getAllChildren()
