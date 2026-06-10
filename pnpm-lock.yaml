@@ -11,6 +11,9 @@ importers:
       '@playwright/test':
         specifier: ^1.48.0
         version: 1.60.0
+      '@repo/eslint-config':
+        specifier: workspace:*
+        version: link:configs/eslint-config
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.42

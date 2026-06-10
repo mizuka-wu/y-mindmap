@@ -15,6 +15,7 @@
     "test:e2e:report": "playwright show-report"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "prettier": "^3.7.4",
     "turbo": "^2.9.16",
     "typescript": "5.9.2",
