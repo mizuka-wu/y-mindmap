@@ -307,6 +307,9 @@ export class MindMapEditor {
     });
 
     this.bindDOMEvents();
+
+    // Center content after first layout
+    requestAnimationFrame(() => this.fitToContent());
   }
 
   get isCollaborating(): boolean {

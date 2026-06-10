@@ -64,8 +64,6 @@ export class EditorView {
 
   private _themeUnsubscribe: (() => void) | null = null;
   private _hoveredNodeId: string | null = null;
-  private _hasInitialFit = false;
-
   constructor(config: EditorViewConfig) {
     this.container = config.container;
     this.layoutEngine = config.layoutEngine || new MapLayoutEngine();
@@ -266,10 +264,6 @@ export class EditorView {
       this._isUpdating = false;
     }
 
-    if (!this._hasInitialFit && this._rootView) {
-      this._hasInitialFit = true;
-      this.fitToContent();
-    }
   }
 
   private validateViews(node: MindMapNode): void {
