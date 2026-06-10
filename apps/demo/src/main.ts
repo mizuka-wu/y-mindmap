@@ -38,6 +38,7 @@ function createEditor(collabYdoc?: Y.Doc) {
     extensions,
     user,
   })
+  ;(window as any).editor = editor
 }
 
 // ── UI ──

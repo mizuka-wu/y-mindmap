@@ -819,6 +819,34 @@ export class MindMapEditor {
     this.commandRegistry.register("cut", cut());
     this.commandRegistry.register("paste", paste());
     this.commandRegistry.register("duplicate", duplicate());
+
+    // File operations
+    this.commandRegistry.register("new", {
+      name: "new",
+      description: "Create new document",
+      execute: (_state, _input, _dispatch) => {
+        const doc = new RootTopic(MindMapNode.create("Central Topic"));
+        this.loadDocument(doc);
+        return true;
+      },
+    });
+
+    this.commandRegistry.register("open", {
+      name: "open",
+      description: "Open file (xmind/md/json)",
+      execute: (_state, file: File, _dispatch) => {
+        if (!file) return false;
+        const name = file.name.toLowerCase();
+        if (name.endsWith(".xmind")) {
+          this.loadXMindFile(file).catch(console.error);
+        } else if (name.endsWith(".md")) {
+          this.loadMarkdownFile(file).catch(console.error);
+        } else if (name.endsWith(".json")) {
+          file.text().then((text) => this.loadJSON(text)).catch(console.error);
+        }
+        return true;
+      },
+    });
   }
 
   private registerDefaultHandlers(): void {

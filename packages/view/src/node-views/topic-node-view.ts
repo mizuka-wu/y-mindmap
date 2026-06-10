@@ -23,6 +23,13 @@ export class TopicNodeView extends TitleableView {
   private _owningBranch: BranchNodeView | null = null
   private _shapeClass: string = 'roundedRect'
 
+  constructor(node: MindMapNode) {
+    super(node)
+    // Re-initialize: base constructor calls initialize() but field initializers
+    // in the subclass run AFTER super(), overwriting what initialize() set.
+    this.initialize()
+  }
+
   protected initialize(): void {
     this._shapeClass = styleManager.getStyleValueOrDefault(this, StyleKey.SHAPE_CLASS, 'roundedRect')
     this.shape = this.createShape()

@@ -3,7 +3,7 @@ import { Command, CommandRegistry } from '@y-mindmap/commands'
 
 export interface UIContext {
   state: EditorState
-  executeCommand: (name: string) => boolean
+  executeCommand: (name: string, args?: any) => boolean
   getSelection: () => string[]
   getDocument: () => MindMapNode
   getZoom: () => number
@@ -156,6 +156,8 @@ export class Toolbar {
     ]
   }
 
+  private fileInput: HTMLInputElement | null = null
+
   private createButton(item: ToolbarItem): HTMLButtonElement {
     const button = document.createElement('button')
     button.className = 'toolbar-button'
@@ -169,12 +171,35 @@ export class Toolbar {
     }
 
     button.addEventListener('click', () => {
-      if (!button.disabled) {
+      if (button.disabled) return
+      if (item.id === 'new') {
+        this.context.executeCommand('new')
+      } else if (item.id === 'open') {
+        this.openFilePicker()
+      } else {
         this.context.executeCommand(item.id)
       }
     })
 
     return button
+  }
+
+  private openFilePicker(): void {
+    if (!this.fileInput) {
+      this.fileInput = document.createElement('input')
+      this.fileInput.type = 'file'
+      this.fileInput.accept = '.xmind,.md,.json'
+      this.fileInput.style.display = 'none'
+      document.body.appendChild(this.fileInput)
+      this.fileInput.addEventListener('change', () => {
+        const file = this.fileInput?.files?.[0]
+        if (file) {
+          this.context.executeCommand('open', file)
+          this.fileInput!.value = ''
+        }
+      })
+    }
+    this.fileInput.click()
   }
 
   private createSelect(item: ToolbarItem): HTMLSelectElement {
