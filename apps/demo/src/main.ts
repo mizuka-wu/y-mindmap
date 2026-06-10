@@ -6,6 +6,10 @@ const container = document.getElementById("app")!;
 const editor = new MindMapEditor({
   container,
   extensions: [...StarterKit()],
+  showToolbar: false,
+  showPropertyPanel: false,
+  showStatusBar: false,
+  showMiniMap: false,
 });
 (window as any).editor = editor;
 
