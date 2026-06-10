@@ -2,7 +2,7 @@ import { RootTopic } from '@y-mindmap/state'
 import { MindMapEditor } from '@y-mindmap/editor'
 import type { ExtensionDefinition } from '@y-mindmap/extension'
 import { StarterKit } from '@y-mindmap/vanilla'
-import { Collab } from '@y-mindmap/extensions'
+import { Collab, Debug } from '@y-mindmap/extensions'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 
@@ -25,7 +25,10 @@ createEditor()
 function createEditor(collabYdoc?: Y.Doc) {
   editor?.destroy()
 
-  const extensions: ExtensionDefinition<any>[] = [...StarterKit()]
+  const extensions: ExtensionDefinition<any>[] = [
+    ...StarterKit(),
+    Debug.configure({ showPanel: true }),
+  ]
   if (collabYdoc) {
     extensions.push(Collab.configure({ ydoc: collabYdoc }))
   }
