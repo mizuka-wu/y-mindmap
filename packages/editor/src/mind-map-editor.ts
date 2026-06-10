@@ -878,11 +878,18 @@ export class MindMapEditor {
     );
   }
 
+  private _getNodeIdAtClient(clientX: number, clientY: number): string | undefined {
+    try {
+      const worldPoint = this.view.clientToWorld(clientX, clientY);
+      return this.view.getNodeAtPoint(worldPoint) || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   private bindDOMEvents(): void {
     this.container.addEventListener("click", (e) => {
-      const target = e.target as HTMLElement;
-      const nodeEl = target.closest("[data-node-id]");
-      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+      const nodeId = this._getNodeIdAtClient(e.clientX, e.clientY);
 
       this.interactionManager.handleEvent({
         type: "click",
@@ -899,9 +906,7 @@ export class MindMapEditor {
     });
 
     this.container.addEventListener("dblclick", (e) => {
-      const target = e.target as HTMLElement;
-      const nodeEl = target.closest("[data-node-id]");
-      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+      const nodeId = this._getNodeIdAtClient(e.clientX, e.clientY);
 
       if (nodeId) {
         this.interactionManager.handleEvent({
@@ -914,9 +919,7 @@ export class MindMapEditor {
 
     this.container.addEventListener("contextmenu", (e) => {
       e.preventDefault();
-      const target = e.target as HTMLElement;
-      const nodeEl = target.closest("[data-node-id]");
-      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+      const nodeId = this._getNodeIdAtClient(e.clientX, e.clientY);
     });
 
     this.container.addEventListener("wheel", (e) => {
@@ -935,9 +938,7 @@ export class MindMapEditor {
     });
 
     this.container.addEventListener("pointerdown", (e) => {
-      const target = e.target as HTMLElement;
-      const nodeEl = target.closest("[data-node-id]");
-      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+      const nodeId = this._getNodeIdAtClient(e.clientX, e.clientY);
 
       this.interactionManager.handleEvent({
         type: "pointerdown",
@@ -954,9 +955,7 @@ export class MindMapEditor {
     });
 
     this.container.addEventListener("pointermove", (e) => {
-      const target = e.target as HTMLElement;
-      const nodeEl = target.closest("[data-node-id]");
-      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+      const nodeId = this._getNodeIdAtClient(e.clientX, e.clientY);
 
       this.interactionManager.handleEvent({
         type: "pointermove",
@@ -972,9 +971,7 @@ export class MindMapEditor {
     });
 
     this.container.addEventListener("pointerup", (e) => {
-      const target = e.target as HTMLElement;
-      const nodeEl = target.closest("[data-node-id]");
-      const nodeId = nodeEl?.getAttribute("data-node-id") || undefined;
+      const nodeId = this._getNodeIdAtClient(e.clientX, e.clientY);
 
       this.interactionManager.handleEvent({
         type: "pointerup",

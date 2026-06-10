@@ -481,33 +481,56 @@ export class EditorView {
   }
 
   getZoom(): number {
-    return (this.app as any).zoom ?? 1;
+    const layer = this.topicLayer;
+    return layer.scaleX ?? 1;
   }
 
   zoomTo(level: number): void {
-    (this.app as any).zoom = level;
+    this._applyCameraTransform(level, undefined, undefined);
   }
 
   zoomIn(): void {
-    (this.app as any).zoom = Math.min((this.app as any).zoom * 1.2, 10);
+    this.zoomTo(Math.min(this.getZoom() * 1.2, 10));
   }
 
   zoomOut(): void {
-    (this.app as any).zoom = Math.max((this.app as any).zoom * 0.8, 0.1);
+    this.zoomTo(Math.max(this.getZoom() * 0.8, 0.1));
   }
 
   panTo(x: number, y: number): void {
-    this.app.x = x as any;
-    this.app.y = y as any;
+    this._applyCameraTransform(undefined, x, y);
   }
 
   panBy(dx: number, dy: number): void {
-    this.app.x = (this.app.x ?? 0) + dx;
-    this.app.y = (this.app.y ?? 0) + dy;
+    const layer = this.topicLayer;
+    this._applyCameraTransform(undefined, (layer.x ?? 0) + dx, (layer.y ?? 0) + dy);
   }
 
   fitToContent(): void {
-    (this.app as any).zoomToFit?.({ padding: 40 });
+    const content = this.getContentBounds();
+    if (content.width === 0 || content.height === 0) return;
+
+    const container = this.container.getBoundingClientRect();
+    const padding = 40;
+    const availW = container.width - padding * 2;
+    const availH = container.height - padding * 2;
+
+    const scale = Math.min(availW / content.width, availH / content.height, 2);
+    const centerX = (container.width - content.width * scale) / 2 - content.x * scale;
+    const centerY = (container.height - content.height * scale) / 2 - content.y * scale;
+
+    this._applyCameraTransform(scale, centerX, centerY);
+  }
+
+  private _applyCameraTransform(scale?: number, x?: number, y?: number): void {
+    for (const layer of [this.connectionLayer, this.topicLayer, this.overlayLayer]) {
+      if (scale !== undefined) {
+        layer.scaleX = scale;
+        layer.scaleY = scale;
+      }
+      if (x !== undefined) layer.x = x;
+      if (y !== undefined) layer.y = y;
+    }
   }
 
   setTheme(theme: ThemeData): void {
@@ -601,11 +624,15 @@ export class EditorView {
   // ── Coordinate Conversion ──
 
   clientToWorld(clientX: number, clientY: number): Point {
-    const innerPoint = (this.app as any).getInnerPoint({
-      x: clientX,
-      y: clientY,
-    });
-    return { x: innerPoint.x, y: innerPoint.y };
+    const layer = this.topicLayer;
+    const scale = layer.scaleX ?? 1;
+    const layerX = layer.x ?? 0;
+    const layerY = layer.y ?? 0;
+    const rect = this.container.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - layerX) / scale,
+      y: (clientY - rect.top - layerY) / scale,
+    };
   }
 
   // ── Hit Testing ──
@@ -643,7 +670,7 @@ export class EditorView {
 
   getViewportController(): { getPan: () => { x: number; y: number } } {
     return {
-      getPan: () => ({ x: this.app.x ?? 0, y: this.app.y ?? 0 }),
+      getPan: () => ({ x: this.topicLayer.x ?? 0, y: this.topicLayer.y ?? 0 }),
     };
   }
 
