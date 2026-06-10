@@ -29,6 +29,7 @@
     "@y-mindmap/collab": "workspace:*",
     "@y-mindmap/plugins": "workspace:*",
     "@y-mindmap/extension": "workspace:*",
+    "@y-mindmap/extensions": "workspace:*",
     "yjs": "^13.6.0"
   }
 }

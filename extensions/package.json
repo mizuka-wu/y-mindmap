@@ -24,6 +24,7 @@
     "@y-mindmap/formats": "workspace:*",
     "yjs": "^13.6.0",
     "@y-mindmap/extension": "workspace:*",
-    "@y-mindmap/view": "workspace:*"
+    "@y-mindmap/view": "workspace:*",
+    "leafer-ui": "^2.1.4"
   }
 }

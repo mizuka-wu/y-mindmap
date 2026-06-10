@@ -80,6 +80,12 @@ import {
 } from "@y-mindmap/collab";
 import { PluginManager, Plugin, PluginEvent } from "@y-mindmap/plugins";
 import { ExtensionManager, ExtensionDefinition } from "@y-mindmap/extension";
+import {
+  DragDrop,
+  ContextMenu,
+  BoxSelect,
+  RichTextEdit,
+} from "@y-mindmap/extensions";
 
 export interface MindMapEditorOptions {
   container: HTMLElement;
@@ -198,10 +204,6 @@ export class MindMapEditor {
       state: this.state,
       layoutEngine,
       enableAnimations: true,
-      onTitleUpdate: (nodeId, title) => {
-        this.executeCommand("updateTitle", { nodeId, title });
-      },
-      getPluginMenuItems: () => this.pluginManager?.getMenuItems() ?? [],
     });
 
     this.inlineEditor = new InlineEditor({
@@ -265,9 +267,22 @@ export class MindMapEditor {
     }
 
     this.extensionManager = new ExtensionManager();
+    const defaultExts: ExtensionDefinition[] = [
+      DragDrop,
+      ContextMenu,
+      BoxSelect,
+      RichTextEdit,
+    ];
+    for (const ext of defaultExts) {
+      if (!this.extensionManager.has(ext.name)) {
+        this.extensionManager.register(ext);
+      }
+    }
     if (options.extensions) {
       for (const ext of options.extensions) {
-        this.extensionManager.register(ext);
+        if (!this.extensionManager.has(ext.name)) {
+          this.extensionManager.register(ext);
+        }
       }
     }
     this.extensionManager.setup(
