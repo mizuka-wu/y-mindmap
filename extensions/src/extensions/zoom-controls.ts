@@ -10,7 +10,7 @@ export interface ZoomControlsOptions {
 }
 
 export const ZoomControls = createExtension<ZoomControlsOptions>({
-  name: 'zoom-controls',
+  name: "extension-zoom-controls",
   type: 'behavior',
 
   defaultOptions: {

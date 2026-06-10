@@ -23,7 +23,7 @@ const DEFAULT_KEYMAP: Record<string, string> = {
 }
 
 export const Keymap = createExtension<KeymapOptions>({
-  name: 'keymap',
+  name: "extension-keymap",
   type: 'behavior',
 
   defaultOptions: {

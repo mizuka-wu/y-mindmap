@@ -16,7 +16,7 @@ export interface InertialScrollOptions {
 }
 
 export const InertialScroll = createExtension<InertialScrollOptions>({
-  name: 'inertial-scroll',
+  name: "extension-inertial-scroll",
   type: 'behavior',
 
   defaultOptions: {

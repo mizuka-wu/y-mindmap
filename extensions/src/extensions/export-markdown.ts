@@ -11,7 +11,7 @@ export interface ExportMarkdownOptions {
 }
 
 export const ExportMarkdown = createExtension<ExportMarkdownOptions>({
-  name: "export-markdown",
+  name: "extension-export-markdown",
   type: "behavior",
 
   defaultOptions: {

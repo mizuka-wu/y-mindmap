@@ -13,7 +13,7 @@ export interface DragDropOptions {
 }
 
 export const DragDrop = createExtension<DragDropOptions>({
-  name: "drag-drop",
+  name: "extension-drag-drop",
   type: "behavior",
 
   defaultOptions: {

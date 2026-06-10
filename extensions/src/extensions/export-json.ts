@@ -8,7 +8,7 @@ export interface ExportJSONOptions {
 }
 
 export const ExportJSON = createExtension<ExportJSONOptions>({
-  name: "export-json",
+  name: "extension-export-json",
   type: "behavior",
 
   defaultOptions: {

@@ -8,7 +8,7 @@ export interface ExportXMindOptions {
 }
 
 export const ExportXMind = createExtension<ExportXMindOptions>({
-  name: "export-xmind",
+  name: "extension-export-xmind",
   type: "behavior",
 
   defaultOptions: {

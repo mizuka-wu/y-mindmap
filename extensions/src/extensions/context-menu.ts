@@ -12,7 +12,7 @@ export interface ContextMenuOptions {
 }
 
 export const ContextMenu = createExtension<ContextMenuOptions>({
-  name: "context-menu",
+  name: "extension-context-menu",
   type: "behavior",
 
   defaultOptions: {

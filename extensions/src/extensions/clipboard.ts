@@ -13,7 +13,7 @@ const CLIPBOARD_KEYMAP: Record<string, string> = {
 }
 
 export const Clipboard = createExtension<ClipboardOptions>({
-  name: 'clipboard',
+  name: "extension-clipboard",
   type: 'behavior',
 
   defaultOptions: {

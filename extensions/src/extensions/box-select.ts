@@ -3,7 +3,7 @@ import { Rect } from "leafer-ui";
 import { Transaction, Selection } from "@y-mindmap/state";
 
 export const BoxSelect = createExtension({
-  name: "box-select",
+  name: "extension-box-select",
   type: "behavior",
 
   defaultOptions: {

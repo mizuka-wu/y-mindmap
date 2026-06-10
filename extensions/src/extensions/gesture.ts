@@ -7,7 +7,7 @@ export interface GestureOptions {
 }
 
 export const Gesture = createExtension<GestureOptions>({
-  name: "gesture",
+  name: "extension-gesture",
   type: "behavior",
 
   defaultOptions: {

@@ -7,7 +7,7 @@ export interface ExportPNGOptions {
 }
 
 export const ExportPNG = createExtension<ExportPNGOptions>({
-  name: 'export-png',
+  name: "extension-export-png",
   type: 'behavior',
 
   defaultOptions: {

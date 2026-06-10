@@ -13,7 +13,7 @@ export interface MinimapOptions {
 }
 
 export const Minimap = createExtension<MinimapOptions>({
-  name: 'minimap',
+  name: "extension-minimap",
   type: 'behavior',
 
   defaultOptions: {

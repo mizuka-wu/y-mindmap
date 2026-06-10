@@ -7,7 +7,7 @@ export interface ExportSVGOptions {
 }
 
 export const ExportSVG = createExtension<ExportSVGOptions>({
-  name: 'export-svg',
+  name: "extension-export-svg",
   type: 'behavior',
 
   defaultOptions: {

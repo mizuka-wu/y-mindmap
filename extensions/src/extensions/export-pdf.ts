@@ -7,7 +7,7 @@ export interface ExportPDFOptions {
 }
 
 export const ExportPDF = createExtension<ExportPDFOptions>({
-  name: 'export-pdf',
+  name: "extension-export-pdf",
   type: 'behavior',
 
   defaultOptions: {

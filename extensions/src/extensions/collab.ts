@@ -10,7 +10,7 @@ export interface CollabOptions {
 }
 
 export const Collab = createExtension<CollabOptions>({
-  name: "collab",
+  name: "extension-collab",
   type: "collaboration",
 
   defaultOptions: {

@@ -6,7 +6,7 @@ export interface RichTextEditOptions {
 }
 
 export const RichTextEdit = createExtension<RichTextEditOptions>({
-  name: "rich-text-edit",
+  name: "extension-rich-text-edit",
   type: "behavior",
 
   defaultOptions: {
