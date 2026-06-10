@@ -10,7 +10,7 @@ export default defineConfig({
     nav: [
       { text: "指南", link: "/guide/" },
       { text: "API", link: "/api/" },
-      { text: "示例", link: "/examples/" },
+      { text: "示例", link: "/demo/", target: "_blank" },
       { text: "更新日志", link: "/changelog" },
     ],
 

@@ -12,7 +12,7 @@ hero:
     - theme: alt
       text: 在线演示
       link: /demo/
-      target: _self
+      target: _blank
     - theme: alt
       text: GitHub
       link: https://github.com/your-org/y-mindmap
