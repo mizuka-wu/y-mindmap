@@ -21,24 +21,16 @@ export class PointerEventBus {
     if (this.domListeners) this.unbind();
 
     const onDown = (e: PointerEvent) => {
-      if (this.dispatch(e, "onPointerDown")) {
-        e.stopPropagation();
-      }
+      this.dispatch(e, "onPointerDown");
     };
     const onMove = (e: PointerEvent) => {
-      if (this.dispatch(e, "onPointerMove")) {
-        e.stopPropagation();
-      }
+      this.dispatch(e, "onPointerMove");
     };
     const onUp = (e: PointerEvent) => {
-      if (this.dispatch(e, "onPointerUp")) {
-        e.stopPropagation();
-      }
+      this.dispatch(e, "onPointerUp");
     };
     const onCancel = (e: PointerEvent) => {
-      if (this.dispatch(e, "onPointerCancel")) {
-        e.stopPropagation();
-      }
+      this.dispatch(e, "onPointerCancel");
     };
 
     container.addEventListener("pointerdown", onDown, true);

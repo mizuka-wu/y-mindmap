@@ -20,6 +20,12 @@ export const BoxSelect = createExtension({
     let boxSelectStartPoint: { x: number; y: number } | null = null;
     let boxSelectRect: Rect | null = null;
     let isBoxSelecting = false;
+    let boxSelectWorldBounds: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null = null;
 
     function rectsIntersect(a: any, b: any): boolean {
       return (
@@ -36,25 +42,16 @@ export const BoxSelect = createExtension({
       }
     }
 
-    function setOutsideBoxSelectNodesForcedInvisible(boxBounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }) {
-      const expandedBox = {
-        x: boxBounds.x - 100,
-        y: boxBounds.y - 100,
-        width: boxBounds.width + 200,
-        height: boxBounds.height + 200,
-      };
-
-      for (const [, topicView] of view.getAllTopicViews()) {
-        const bounds = topicView.getAbsoluteBounds();
-        const isInside = rectsIntersect(expandedBox, bounds);
-        topicView.setForcedInvisible(!isInside);
+    const cleanupBoxSelect = () => {
+      restoreAllNodesVisibility();
+      if (boxSelectRect) {
+        boxSelectRect.remove();
+        boxSelectRect = null;
       }
-    }
+      boxSelectStartPoint = null;
+      boxSelectWorldBounds = null;
+      isBoxSelecting = false;
+    };
 
     const onPointerDown = (e: PointerEvent): boolean | void => {
       if (e.button !== 0) return false;
@@ -64,6 +61,9 @@ export const BoxSelect = createExtension({
       const nodeId = view.getNodeAtPoint(worldPoint);
 
       if (nodeId) return false;
+
+      // 阻止 click 事件合成，防止框选结果被 click 覆盖
+      e.preventDefault();
 
       ctx.emit("boxselect:start");
 
@@ -98,10 +98,10 @@ export const BoxSelect = createExtension({
       const height = Math.abs(currentPoint.y - start.y);
 
       boxSelectRect.set({ x, y, width, height });
+      boxSelectWorldBounds = { x, y, width, height };
 
       if (width > 2 || height > 2) {
         isBoxSelecting = true;
-        setOutsideBoxSelectNodesForcedInvisible({ x, y, width, height });
         return true;
       }
 
@@ -111,21 +111,13 @@ export const BoxSelect = createExtension({
     const onPointerUp = (e: PointerEvent): boolean | void => {
       const wasBoxSelecting = isBoxSelecting;
 
-      if (isBoxSelecting && boxSelectRect && ctx.state) {
-        const rect = boxSelectRect;
-        const rectBounds = {
-          x: rect.x,
-          y: rect.y,
-          width: rect.width,
-          height: rect.height,
-        };
-
+      if (isBoxSelecting && boxSelectWorldBounds && ctx.state) {
         const selectedNodeIds: string[] = [];
         for (const [, topicView] of view.getAllTopicViews()) {
           if (!topicView.isVisible() || topicView.isForcedInvisible()) continue;
 
           const bounds = topicView.getAbsoluteBounds();
-          if (bounds && rectsIntersect(rectBounds, bounds as any)) {
+          if (bounds && rectsIntersect(boxSelectWorldBounds, bounds as any)) {
             selectedNodeIds.push(topicView.nodeId);
           }
         }
@@ -135,20 +127,23 @@ export const BoxSelect = createExtension({
           tr.setSelection(Selection.multiple(selectedNodeIds));
           ctx.dispatch(tr);
         }
+      } else if (!wasBoxSelecting && ctx.state) {
+        // 空白处点击（未形成框选），手动取消选择
+        const tr = new Transaction(ctx.state.workbook, ctx.state.selection);
+        tr.setSelection(Selection.empty());
+        ctx.dispatch(tr);
       }
 
-      restoreAllNodesVisibility();
-
-      if (boxSelectRect) {
-        boxSelectRect.remove();
-        boxSelectRect = null;
-      }
-      boxSelectStartPoint = null;
-      isBoxSelecting = false;
-
+      cleanupBoxSelect();
       ctx.emit("boxselect:end");
 
       return wasBoxSelecting || false;
+    };
+
+    const onPointerCancel = (): boolean | void => {
+      cleanupBoxSelect();
+      ctx.emit("boxselect:end");
+      return isBoxSelecting || false;
     };
 
     const unregister = ctx.registerPointerHandler({
@@ -156,16 +151,13 @@ export const BoxSelect = createExtension({
       onPointerDown,
       onPointerMove,
       onPointerUp,
+      onPointerCancel,
       priority: 10,
     });
 
     return () => {
       unregister();
-      restoreAllNodesVisibility();
-      if (boxSelectRect) {
-        boxSelectRect.remove();
-        boxSelectRect = null;
-      }
+      cleanupBoxSelect();
     };
   },
 });
