@@ -12,10 +12,7 @@
       "require": "./dist/index.cjs"
     }
   },
-  "scripts": {
-    "build": "tsc",
-    "lint": "eslint src/"
-  },
+  "scripts": {},
   "dependencies": {
     "@svgdotjs/svg.js": "^3.2.4",
     "@xmldom/xmldom": "^0.9.3",
