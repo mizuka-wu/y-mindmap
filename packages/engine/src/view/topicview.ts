@@ -362,7 +362,7 @@ export class TopicView extends TitleableView {
   s$topicInnerElementGroup: any;
   topicShapeFill: any;
   topicShape: any;
-  model: any;
+  declare model: any;
   constructor(model, parentBranchView?) {
     super({
       model,

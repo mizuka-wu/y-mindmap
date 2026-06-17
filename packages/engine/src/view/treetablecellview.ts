@@ -20,9 +20,9 @@ const DEFOCUS_COLOR = "#9f9f9f";
 // don't use break line to compute line width while it has not children
 export class TreeTableCellView extends SvgComponentView {
   _treeTableHeadBranchView: any;
-  isVisible: boolean;
-  figure: any;
-  isForcedInvisible: any;
+  declare isVisible: boolean;
+  declare figure: any;
+  declare isForcedInvisible: any;
   constructor(parentView) {
     super();
     this._treeTableHeadBranchView = null;
