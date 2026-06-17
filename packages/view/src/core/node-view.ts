@@ -1,14 +1,19 @@
-import { Group, Rect, Ellipse, Path, Text } from 'leafer-ui'
-import type { MindMapNode } from '@y-mindmap/state'
-import type { StyleData } from '@y-mindmap/core'
-import { AnimationScheduler, Easing, type AnimationState, type EasingFunction } from '@y-mindmap/layout'
+import { Group, Rect, Ellipse, Path, Text } from "leafer-ui";
+import type { MindMapNode } from "@y-mindmap/state";
+import type { StyleData } from "@y-mindmap/core";
+import {
+  AnimationScheduler,
+  Easing,
+  type AnimationState,
+  type EasingFunction,
+} from "@y-mindmap/layout";
 
 export interface NodeLayout {
-  nodeId: string
-  x: number
-  y: number
-  width: number
-  height: number
+  nodeId: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export enum DirtyFlag {
@@ -22,510 +27,532 @@ export enum DirtyFlag {
 }
 
 export interface Bounds {
-  x: number
-  y: number
-  width: number
-  height: number
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface Size {
-  width: number
-  height: number
+  width: number;
+  height: number;
 }
 
 export interface Position {
-  x: number
-  y: number
+  x: number;
+  y: number;
 }
 
 export abstract class NodeView {
-  protected _node: MindMapNode
-  readonly group: Group
-  readonly nodeId: string
-  
-  protected _size: Size = { width: 0, height: 0 }
-  protected _preferredSize: Size | null = null
-  protected _position: Position = { x: 0, y: 0 }
-  
-  protected _dirtyFlags: DirtyFlag = DirtyFlag.ALL
-  protected _forbidInvalidateLayout: boolean = false
-  protected _forbidInvalidateLayoutParent: boolean = false
-  protected _forbidInvalidatePaint: boolean = false
-  
-  protected _isVisible: boolean = true
-  protected _isForcedInvisible: boolean = false
-  protected _opacity: number = 1
-  protected _isDisposed: boolean = false
-  protected _isSelected: boolean = false
-  protected _isHovered: boolean = false
-  
-  protected _parent: NodeView | null = null
-  protected _children: NodeView[] = []
-  
+  protected _node: MindMapNode;
+  readonly group: Group;
+  readonly nodeId: string;
+
+  protected _size: Size = { width: 0, height: 0 };
+  protected _preferredSize: Size | null = null;
+  protected _position: Position = { x: 0, y: 0 };
+
+  protected _dirtyFlags: DirtyFlag = DirtyFlag.ALL;
+  protected _forbidInvalidateLayout: boolean = false;
+  protected _forbidInvalidateLayoutParent: boolean = false;
+  protected _forbidInvalidatePaint: boolean = false;
+
+  protected _isVisible: boolean = true;
+  protected _isForcedInvisible: boolean = false;
+  protected _opacity: number = 1;
+  protected _isDisposed: boolean = false;
+  protected _isSelected: boolean = false;
+  protected _isHovered: boolean = false;
+
+  protected _parent: NodeView | null = null;
+  protected _children: NodeView[] = [];
+
   constructor(node: MindMapNode) {
-    this._node = node
-    this.nodeId = node.id
-    
+    this._node = node;
+    this.nodeId = node.id;
+
     this.group = new Group({
       data: { nodeId: node.id },
-    })
-    
-    this.initialize()
-    this.invalidate(DirtyFlag.ALL)
+    });
+
+    this.initialize();
+    this.invalidate(DirtyFlag.ALL);
   }
-  
-  protected abstract initialize(): void
-  protected abstract calculatePreferredSize(): Size
-  protected abstract applyLayout(): void
-  protected abstract applyPaint(): void
-  protected abstract updateStyle(): void
-  
+
+  protected abstract initialize(): void;
+  protected abstract calculatePreferredSize(): Size;
+  protected abstract applyLayout(): void;
+  protected abstract applyPaint(): void;
+  protected abstract updateStyle(): void;
+
   validateLayout(): void {
-    if (!(this._dirtyFlags & DirtyFlag.LAYOUT)) return
-    
-    this._forbidInvalidateLayout = true
-    this._preferredSize = this.calculatePreferredSize()
-    this.applyLayout()
-    
-    for (const child of this._children) {
-      child.validateLayout()
+    if (!(this._dirtyFlags & DirtyFlag.LAYOUT)) return;
+
+    this._forbidInvalidateLayout = true;
+    this._preferredSize = this.calculatePreferredSize();
+    if (this._preferredSize) {
+      this._size.width = this._preferredSize.width;
+      this._size.height = this._preferredSize.height;
     }
-    
-    this._dirtyFlags &= ~DirtyFlag.LAYOUT
-    this._forbidInvalidateLayout = false
+    this.applyLayout();
+
+    for (const child of this._children) {
+      child.validateLayout();
+    }
+
+    this._dirtyFlags &= ~DirtyFlag.LAYOUT;
+    this._forbidInvalidateLayout = false;
   }
-  
+
   validatePaint(): void {
     if (this._dirtyFlags & DirtyFlag.STYLE) {
-      this.updateStyle()
-      this._dirtyFlags &= ~DirtyFlag.STYLE
+      this.updateStyle();
+      this._dirtyFlags &= ~DirtyFlag.STYLE;
     }
 
-    if (!(this._dirtyFlags & DirtyFlag.PAINT)) return
-    
-    this._forbidInvalidatePaint = true
-    this.applyPaint()
-    
+    if (!(this._dirtyFlags & DirtyFlag.PAINT)) return;
+
+    this._forbidInvalidatePaint = true;
+    this.applyPaint();
+
     for (const child of this._children) {
-      child.validatePaint()
+      child.validatePaint();
     }
-    
-    this._dirtyFlags &= ~DirtyFlag.PAINT
-    this._forbidInvalidatePaint = false
+
+    this._dirtyFlags &= ~DirtyFlag.PAINT;
+    this._forbidInvalidatePaint = false;
   }
-  
+
   validate(): void {
-    this.validateLayout()
-    this.validatePaint()
-    this._dirtyFlags = DirtyFlag.NONE
+    this.validateLayout();
+    this.validatePaint();
+    this._dirtyFlags = DirtyFlag.NONE;
   }
-  
+
   isDirty(flags?: DirtyFlag): boolean {
-    if (flags === undefined) return this._dirtyFlags !== DirtyFlag.NONE
-    return (this._dirtyFlags & flags) !== 0
+    if (flags === undefined) return this._dirtyFlags !== DirtyFlag.NONE;
+    return (this._dirtyFlags & flags) !== 0;
   }
-  
+
   getDirtyNodeId(): string | null {
-    return (this._dirtyFlags & DirtyFlag.LAYOUT) ? this.nodeId : null
+    return this._dirtyFlags & DirtyFlag.LAYOUT ? this.nodeId : null;
   }
-  
+
   collectDirtyNodeIds(): Set<string> {
-    const dirtyIds = new Set<string>()
-    this._collectDirtyNodeIdsRecursive(dirtyIds)
-    return dirtyIds
+    const dirtyIds = new Set<string>();
+    this._collectDirtyNodeIdsRecursive(dirtyIds);
+    return dirtyIds;
   }
-  
+
   private _collectDirtyNodeIdsRecursive(result: Set<string>): void {
     if (this._dirtyFlags & DirtyFlag.LAYOUT) {
-      result.add(this.nodeId)
+      result.add(this.nodeId);
     }
     for (const child of this._children) {
-      child._collectDirtyNodeIdsRecursive(result)
+      child._collectDirtyNodeIdsRecursive(result);
     }
   }
-  
+
   clearDirtyFlags(flags: DirtyFlag): void {
-    this._dirtyFlags &= ~flags
+    this._dirtyFlags &= ~flags;
   }
-  
+
   invalidateLayout(): void {
-    if (this._forbidInvalidateLayout) return
-    if (this._dirtyFlags & DirtyFlag.LAYOUT) return
-    
-    this._dirtyFlags |= DirtyFlag.LAYOUT
-    this._dirtyFlags |= DirtyFlag.PAINT
-    
+    if (this._forbidInvalidateLayout) return;
+    if (this._dirtyFlags & DirtyFlag.LAYOUT) return;
+
+    this._dirtyFlags |= DirtyFlag.LAYOUT;
+    this._dirtyFlags |= DirtyFlag.PAINT;
+
     if (!this._forbidInvalidateLayoutParent && this._parent) {
-      this._parent.invalidateLayout()
+      this._parent.invalidateLayout();
     }
   }
-  
+
   invalidatePaint(): void {
-    if (this._forbidInvalidatePaint) return
-    if (this._dirtyFlags & DirtyFlag.PAINT) return
-    
-    this._dirtyFlags |= DirtyFlag.PAINT
+    if (this._forbidInvalidatePaint) return;
+    if (this._dirtyFlags & DirtyFlag.PAINT) return;
+
+    this._dirtyFlags |= DirtyFlag.PAINT;
   }
-  
+
   invalidateStyle(): void {
-    this._dirtyFlags |= DirtyFlag.STYLE
-    this.invalidatePaint()
+    this._dirtyFlags |= DirtyFlag.STYLE;
+    this.invalidatePaint();
   }
-  
+
   invalidate(flags: DirtyFlag): void {
-    if (flags & DirtyFlag.LAYOUT) this.invalidateLayout()
-    if (flags & DirtyFlag.PAINT) this.invalidatePaint()
-    if (flags & DirtyFlag.STYLE) this.invalidateStyle()
+    if (flags & DirtyFlag.LAYOUT) this.invalidateLayout();
+    if (flags & DirtyFlag.PAINT) this.invalidatePaint();
+    if (flags & DirtyFlag.STYLE) this.invalidateStyle();
     if (flags & DirtyFlag.SIZE) {
-      this._dirtyFlags |= DirtyFlag.SIZE
-      this.invalidateLayout()
+      this._dirtyFlags |= DirtyFlag.SIZE;
+      this.invalidateLayout();
     }
     if (flags & DirtyFlag.POSITION) {
-      this._dirtyFlags |= DirtyFlag.POSITION
-      this.invalidatePaint()
+      this._dirtyFlags |= DirtyFlag.POSITION;
+      this.invalidatePaint();
     }
   }
-  
-  private _reusableSize: Size = { width: 0, height: 0 }
-  private _reusablePosition: Position = { x: 0, y: 0 }
-  private _reusableBounds: Bounds = { x: 0, y: 0, width: 0, height: 0 }
+
+  private _reusableSize: Size = { width: 0, height: 0 };
+  private _reusablePosition: Position = { x: 0, y: 0 };
+  private _reusableBounds: Bounds = { x: 0, y: 0, width: 0, height: 0 };
 
   getSize(): Size {
-    return { ...this._size }
+    return { ...this._size };
   }
-  
+
   getSizeRef(): Size {
-    this._reusableSize.width = this._size.width
-    this._reusableSize.height = this._size.height
-    return this._reusableSize
+    this._reusableSize.width = this._size.width;
+    this._reusableSize.height = this._size.height;
+    return this._reusableSize;
   }
-  
+
   setSize(size: Size, forceUpdate = false): void {
-    if (!forceUpdate && 
-        this._size.width === size.width && 
-        this._size.height === size.height) {
-      return
+    if (
+      !forceUpdate &&
+      this._size.width === size.width &&
+      this._size.height === size.height
+    ) {
+      return;
     }
-    
-    this._size.width = size.width
-    this._size.height = size.height
-    this._dirtyFlags |= DirtyFlag.SIZE
-    this.invalidateLayout()
+
+    this._size.width = size.width;
+    this._size.height = size.height;
+    this._dirtyFlags |= DirtyFlag.SIZE;
+    this.invalidateLayout();
   }
-  
+
   getPreferredSize(refreshCache = false): Size {
     if (refreshCache || !this._preferredSize) {
-      this._preferredSize = this.calculatePreferredSize()
+      this._preferredSize = this.calculatePreferredSize();
     }
-    return this._preferredSize
+    return this._preferredSize;
   }
-  
+
   setPreferredSize(size: Size | null): void {
-    this._preferredSize = size
+    this._preferredSize = size;
   }
-  
+
   getPosition(): Position {
-    return { ...this._position }
+    return { ...this._position };
   }
-  
+
   getPositionRef(): Position {
-    this._reusablePosition.x = this._position.x
-    this._reusablePosition.y = this._position.y
-    return this._reusablePosition
+    this._reusablePosition.x = this._position.x;
+    this._reusablePosition.y = this._position.y;
+    return this._reusablePosition;
   }
-  
+
   setPosition(position: Position): void {
     if (this._position.x === position.x && this._position.y === position.y) {
-      return
+      return;
     }
-    
-    this._position.x = position.x
-    this._position.y = position.y
-    this._dirtyFlags |= DirtyFlag.POSITION
-    
-    this.group.x = position.x
-    this.group.y = position.y
+
+    this._position.x = position.x;
+    this._position.y = position.y;
+    this._dirtyFlags |= DirtyFlag.POSITION;
+
+    this.group.x = position.x;
+    this.group.y = position.y;
   }
-  
+
   isVisible(): boolean {
-    return this._isVisible
+    return this._isVisible;
   }
 
   isForcedInvisible(): boolean {
-    return this._isForcedInvisible
+    return this._isForcedInvisible;
   }
 
   setForcedInvisible(forcedInvisible: boolean): void {
-    if (this._isForcedInvisible === forcedInvisible) return
-    this._isForcedInvisible = forcedInvisible
-    this.group.visible = this._isVisible && !this._isForcedInvisible
-    this.invalidatePaint()
+    if (this._isForcedInvisible === forcedInvisible) return;
+    this._isForcedInvisible = forcedInvisible;
+    this.group.visible = this._isVisible && !this._isForcedInvisible;
+    this.invalidatePaint();
   }
 
   setVisible(visible: boolean): void {
-    if (this._isVisible === visible) return
-    
-    this._isVisible = visible
-    this.group.visible = visible && !this._isForcedInvisible
-    this.invalidatePaint()
+    if (this._isVisible === visible) return;
+
+    this._isVisible = visible;
+    this.group.visible = visible && !this._isForcedInvisible;
+    this.invalidatePaint();
   }
-  
+
   getOpacity(): number {
-    return this._opacity
+    return this._opacity;
   }
-  
+
   setOpacity(opacity: number): void {
-    if (this._opacity === opacity) return
-    
-    this._opacity = opacity
-    this.group.opacity = opacity
-    this.invalidatePaint()
+    if (this._opacity === opacity) return;
+
+    this._opacity = opacity;
+    this.group.opacity = opacity;
+    this.invalidatePaint();
   }
-  
+
   isSelected(): boolean {
-    return this._isSelected
+    return this._isSelected;
   }
-  
+
   setSelected(selected: boolean): void {
-    if (this._isSelected === selected) return
-    this._isSelected = selected
-    this.invalidatePaint()
+    if (this._isSelected === selected) return;
+    this._isSelected = selected;
+    this.invalidatePaint();
   }
 
   isHovered(): boolean {
-    return this._isHovered
+    return this._isHovered;
   }
 
   setHovered(hovered: boolean): void {
-    if (this._isHovered === hovered) return
-    this._isHovered = hovered
-    this.invalidatePaint()
+    if (this._isHovered === hovered) return;
+    this._isHovered = hovered;
+    this.invalidatePaint();
   }
-  
+
   isDisposed(): boolean {
-    return this._isDisposed
+    return this._isDisposed;
   }
-  
+
   getParent(): NodeView | null {
-    return this._parent
+    return this._parent;
   }
-  
+
   setParent(parent: NodeView | null): void {
-    this._parent = parent
+    this._parent = parent;
   }
-  
+
   getChildren(): NodeView[] {
-    return [...this._children]
+    return [...this._children];
   }
-  
+
   addChild(child: NodeView): void {
-    if (this._children.includes(child)) return
-    
-    child.setParent(this)
-    this._children.push(child)
-    this.group.add(child.group)
-    this.invalidateLayout()
+    if (this._children.includes(child)) return;
+
+    child.setParent(this);
+    this._children.push(child);
+    this.group.add(child.group);
+    this.invalidateLayout();
   }
-  
+
   removeChild(child: NodeView): void {
-    const index = this._children.indexOf(child)
-    if (index === -1) return
-    
-    child.setParent(null)
-    this._children.splice(index, 1)
-    child.group.remove()
-    this.invalidateLayout()
+    const index = this._children.indexOf(child);
+    if (index === -1) return;
+
+    child.setParent(null);
+    this._children.splice(index, 1);
+    child.group.remove();
+    this.invalidateLayout();
   }
-  
+
   getCentralNodeView(): NodeView | null {
-    let current: NodeView | null = this
+    let current: NodeView | null = this;
     while (current?._parent) {
-      current = current._parent
+      current = current._parent;
     }
-    return current
+    return current;
   }
-  
+
   getNode(): MindMapNode {
-    return this._node
+    return this._node;
   }
-  
+
   updateNode(node: MindMapNode): void {
-    this._node = node
-    this.invalidateStyle()
+    this._node = node;
+    this.invalidateStyle();
   }
-  
+
   getBounds(): Bounds {
     return {
       x: this._position.x,
       y: this._position.y,
       width: this._size.width,
       height: this._size.height,
-    }
+    };
   }
-  
+
   getBoundsRef(): Bounds {
-    this._reusableBounds.x = this._position.x
-    this._reusableBounds.y = this._position.y
-    this._reusableBounds.width = this._size.width
-    this._reusableBounds.height = this._size.height
-    return this._reusableBounds
+    this._reusableBounds.x = this._position.x;
+    this._reusableBounds.y = this._position.y;
+    this._reusableBounds.width = this._size.width;
+    this._reusableBounds.height = this._size.height;
+    return this._reusableBounds;
   }
-  
+
   getContentBounds(): Bounds {
-    return this.getBounds()
+    return this.getBounds();
   }
 
   /**
    * Get bounds in absolute (world) coordinates by walking up the parent chain.
    */
   getAbsoluteBounds(): Bounds {
-    let x = this._position.x
-    let y = this._position.y
-    let parent = this._parent
+    let x = this._position.x;
+    let y = this._position.y;
+    let parent = this._parent;
     while (parent) {
-      x += parent._position.x
-      y += parent._position.y
-      parent = parent._parent
+      x += parent._position.x;
+      y += parent._position.y;
+      parent = parent._parent;
     }
     return {
       x,
       y,
       width: this._size.width,
       height: this._size.height,
-    }
+    };
   }
-  
+
   animatePosition(
     from: Position,
     to: Position,
     duration: number = 300,
-    easing: EasingFunction = Easing.easeOut
+    easing: EasingFunction = Easing.easeOut,
   ): Promise<void> {
     return new Promise((resolve) => {
-      const scheduler = NodeView._sharedScheduler
-      const animId = `${this.nodeId}-position-${Date.now()}`
-      
-      scheduler.startAnimation(animId, 
+      const scheduler = NodeView._sharedScheduler;
+      const animId = `${this.nodeId}-position-${Date.now()}`;
+
+      scheduler.startAnimation(
+        animId,
         { x: from.x, y: from.y },
         { x: to.x, y: to.y },
         {
           duration,
           easing,
           onUpdate: (state) => {
-            this.setPosition({ x: state.x, y: state.y })
+            this.setPosition({ x: state.x, y: state.y });
           },
           onComplete: () => resolve(),
-        }
-      )
-    })
+        },
+      );
+    });
   }
 
   animateOpacity(
     from: number,
     to: number,
     duration: number = 200,
-    easing: EasingFunction = Easing.easeOut
+    easing: EasingFunction = Easing.easeOut,
   ): Promise<void> {
     return new Promise((resolve) => {
-      const scheduler = NodeView._sharedScheduler
-      const animId = `${this.nodeId}-opacity-${Date.now()}`
-      
-      scheduler.startAnimation(animId,
+      const scheduler = NodeView._sharedScheduler;
+      const animId = `${this.nodeId}-opacity-${Date.now()}`;
+
+      scheduler.startAnimation(
+        animId,
         { opacity: from },
         { opacity: to },
         {
           duration,
           easing,
           onUpdate: (state) => {
-            this.setOpacity(state.opacity)
+            this.setOpacity(state.opacity);
           },
           onComplete: () => resolve(),
-        }
-      )
-    })
+        },
+      );
+    });
   }
 
   animateScale(
     from: { x: number; y: number },
     to: { x: number; y: number },
     duration: number = 200,
-    easing: EasingFunction = Easing.easeOut
+    easing: EasingFunction = Easing.easeOut,
   ): Promise<void> {
     return new Promise((resolve) => {
-      const scheduler = NodeView._sharedScheduler
-      const animId = `${this.nodeId}-scale-${Date.now()}`
-      
-      scheduler.startAnimation(animId,
+      const scheduler = NodeView._sharedScheduler;
+      const animId = `${this.nodeId}-scale-${Date.now()}`;
+
+      scheduler.startAnimation(
+        animId,
         { scaleX: from.x, scaleY: from.y },
         { scaleX: to.x, scaleY: to.y },
         {
           duration,
           easing,
           onUpdate: (state) => {
-            this.group.scaleX = state.scaleX
-            this.group.scaleY = state.scaleY
+            this.group.scaleX = state.scaleX;
+            this.group.scaleY = state.scaleY;
           },
           onComplete: () => resolve(),
-        }
-      )
-    })
+        },
+      );
+    });
   }
 
   animateCollapse(duration: number = 200): Promise<void> {
     return new Promise(async (resolve) => {
       await Promise.all([
-        this.animateScale({ x: 1, y: 1 }, { x: 0, y: 0 }, duration, Easing.easeIn),
+        this.animateScale(
+          { x: 1, y: 1 },
+          { x: 0, y: 0 },
+          duration,
+          Easing.easeIn,
+        ),
         this.animateOpacity(1, 0, duration, Easing.easeIn),
-      ])
-      this.setVisible(false)
-      this.group.scaleX = 1
-      this.group.scaleY = 1
-      resolve()
-    })
+      ]);
+      this.setVisible(false);
+      this.group.scaleX = 1;
+      this.group.scaleY = 1;
+      resolve();
+    });
   }
 
   animateExpand(duration: number = 200): Promise<void> {
     return new Promise(async (resolve) => {
-      this.setVisible(true)
-      this.group.scaleX = 0
-      this.group.scaleY = 0
-      this.setOpacity(0)
-      
+      this.setVisible(true);
+      this.group.scaleX = 0;
+      this.group.scaleY = 0;
+      this.setOpacity(0);
+
       await Promise.all([
-        this.animateScale({ x: 0, y: 0 }, { x: 1, y: 1 }, duration, Easing.easeOut),
+        this.animateScale(
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
+          duration,
+          Easing.easeOut,
+        ),
         this.animateOpacity(0, 1, duration, Easing.easeOut),
-      ])
-      resolve()
-    })
+      ]);
+      resolve();
+    });
   }
 
   cancelAnimations(): void {
-    const scheduler = NodeView._sharedScheduler
-    const animIds = scheduler.getAnimatingIds().filter(id => id.startsWith(this.nodeId))
+    const scheduler = NodeView._sharedScheduler;
+    const animIds = scheduler
+      .getAnimatingIds()
+      .filter((id) => id.startsWith(this.nodeId));
     for (const id of animIds) {
-      scheduler.cancelAnimation(id)
+      scheduler.cancelAnimation(id);
     }
   }
 
   destroy(): void {
-    if (this._isDisposed) return
-    
-    this.cancelAnimations()
-    
+    if (this._isDisposed) return;
+
+    this.cancelAnimations();
+
     for (const child of [...this._children]) {
-      child.destroy()
+      child.destroy();
     }
-    this._children = []
-    
+    this._children = [];
+
     if (this._parent) {
-      this._parent.removeChild(this)
+      this._parent.removeChild(this);
     }
-    
-    this.group.remove()
-    this._isDisposed = true
+
+    this.group.remove();
+    this._isDisposed = true;
   }
 
-  private static _sharedScheduler: AnimationScheduler = new AnimationScheduler()
+  private static _sharedScheduler: AnimationScheduler =
+    new AnimationScheduler();
 }
 
-export default NodeView
+export default NodeView;

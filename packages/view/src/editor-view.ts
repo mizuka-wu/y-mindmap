@@ -82,7 +82,11 @@ export class EditorView {
     const handlers = this._listeners.get(event);
     if (handlers) {
       for (const handler of handlers) {
-        try { handler(...args); } catch (e) { console.error(e); }
+        try {
+          handler(...args);
+        } catch (e) {
+          console.error(e);
+        }
       }
     }
   }
@@ -249,6 +253,9 @@ export class EditorView {
       const dirtyNodeIds = this._rootView!.collectDirtyNodeIds();
 
       if (dirtyNodeIds.size > 0) {
+        // Ensure all views have measured their actual sizes before layout
+        this.validateViews(root);
+
         if (this.animatedLayoutEngine && this.enableAnimations) {
           const layoutResult = this.animatedLayoutEngine.calculateAnimated(
             root,
@@ -287,7 +294,7 @@ export class EditorView {
       this._isUpdating = false;
     }
 
-    this.emit('layout:done');
+    this.emit("layout:done");
   }
 
   private validateViews(node: MindMapNode): void {
@@ -527,7 +534,11 @@ export class EditorView {
 
   panBy(dx: number, dy: number): void {
     const layer = this.topicLayer;
-    this._applyCameraTransform(undefined, (layer.x ?? 0) + dx, (layer.y ?? 0) + dy);
+    this._applyCameraTransform(
+      undefined,
+      (layer.x ?? 0) + dx,
+      (layer.y ?? 0) + dy,
+    );
   }
 
   fitToContent(): void {
@@ -540,14 +551,20 @@ export class EditorView {
     const availH = container.height - padding * 2;
 
     const scale = Math.min(availW / content.width, availH / content.height, 2);
-    const centerX = (container.width - content.width * scale) / 2 - content.x * scale;
-    const centerY = (container.height - content.height * scale) / 2 - content.y * scale;
+    const centerX =
+      (container.width - content.width * scale) / 2 - content.x * scale;
+    const centerY =
+      (container.height - content.height * scale) / 2 - content.y * scale;
 
     this._applyCameraTransform(scale, centerX, centerY);
   }
 
   private _applyCameraTransform(scale?: number, x?: number, y?: number): void {
-    for (const layer of [this.connectionLayer, this.topicLayer, this.overlayLayer]) {
+    for (const layer of [
+      this.connectionLayer,
+      this.topicLayer,
+      this.overlayLayer,
+    ]) {
       if (scale !== undefined) {
         layer.scaleX = scale;
         layer.scaleY = scale;
@@ -593,6 +610,15 @@ export class EditorView {
 
   private _getLayoutOptions(): any {
     return {
+      nodeSizeProvider: (
+        nodeId: string,
+      ): { width: number; height: number } | null => {
+        const view = this.nodeViewFactory.getTopicView(nodeId);
+        if (!view) return null;
+        const sz = view.getSize();
+        if (sz.width === 0 || sz.height === 0) return null;
+        return sz;
+      },
       nodeSpacingResolver: (nodeId: string): [number, number] | null => {
         const view = this.nodeViewFactory.getTopicView(nodeId);
         if (!view) return null;

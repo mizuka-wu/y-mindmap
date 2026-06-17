@@ -1,0 +1,61 @@
+{
+  "name": "@y-mindmap/engine",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "@svgdotjs/svg.js": "^3.2.4",
+    "@xmldom/xmldom": "^0.9.3",
+    "animejs": "^3.2.2",
+    "backbone": "^1.6.0",
+    "buffer": "^6.0.3",
+    "commonmark": "^0.31.2",
+    "crypto-js": "^4.2.0",
+    "entities": "^5.0.0",
+    "file-saver": "^2.0.5",
+    "global": "^4.4.0",
+    "hammerjs": "^2.0.8",
+    "jquery": "^3.7.1",
+    "jszip": "^3.10.1",
+    "mathjax-full": "^3.2.2",
+    "mobx": "^6.13.3",
+    "path-browserify": "^1.0.1",
+    "points": "^3.2.0",
+    "points-on-path": "^0.2.1",
+    "process": "^0.11.10",
+    "roughjs": "^4.6.6",
+    "svg-arc-to-cubic-bezier": "^3.2.0",
+    "svg-path-properties": "^1.3.0",
+    "svg-pathdata": "^7.1.0",
+    "svg-points": "^6.0.1",
+    "svg.filter.js": "^2.0.2",
+    "svg.js": "2.7.1",
+    "tinycolor2": "^1.6.0",
+    "underscore": "^1.13.7",
+    "xmldom": "^0.6.0"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "@types/animejs": "^3.1.12",
+    "@types/backbone": "^1.4.22",
+    "@types/hammerjs": "^2.0.46",
+    "@types/jquery": "^3.5.31",
+    "@types/tinycolor2": "^1.4.6",
+    "@types/underscore": "^1.11.15",
+    "typescript": "5.9.2"
+  }
+}

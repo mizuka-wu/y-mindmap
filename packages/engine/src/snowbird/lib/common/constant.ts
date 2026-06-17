@@ -1,0 +1,16 @@
+export enum LANGS {
+  ZH_CN = "zh-CN",
+  EN_US = "en-US",
+  ZH_HK = "zh-HK",
+  ZH_TW = "zh-TW",
+  JA_JP = "ja-JP",
+  DE_DE = "de-DE",
+  FR_FR = "fr-FR",
+  ES_ES = "es",
+  ID_ID = "id",
+  IT_IT = "it-IT",
+  KR_KR = "ko",
+  PT_PT = "pt-PT",
+  RU_RU = "ru-RU",
+  TH_TH = "th",
+}

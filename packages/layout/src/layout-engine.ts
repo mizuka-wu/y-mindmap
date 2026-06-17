@@ -23,23 +23,20 @@ function updateChildrenBounds(
     };
     return;
   }
-
   const children = node.attachedChildren;
-  let minX = layout.x;
-  let minY = layout.y;
-  let maxX = layout.x + layout.width;
-  let maxY = layout.y + layout.height;
-
+  let minX = layout.x,
+    minY = layout.y,
+    maxX = layout.x + layout.width,
+    maxY = layout.y + layout.height;
   for (const child of children) {
     updateChildrenBounds(child, nodes);
-    const childLayout = nodes.get(child.id)!;
-    const cb = childLayout.childrenBounds;
+    const cl = nodes.get(child.id)!;
+    const cb = cl.childrenBounds;
     minX = Math.min(minX, cb.x);
     minY = Math.min(minY, cb.y);
     maxX = Math.max(maxX, cb.x + cb.width);
     maxY = Math.max(maxY, cb.y + cb.height);
   }
-
   layout.childrenBounds = {
     x: minX,
     y: minY,
@@ -48,11 +45,12 @@ function updateChildrenBounds(
   };
 }
 
+// ---------- NEW bottom-up MapLayoutEngine ----------
 export class MapLayoutEngine implements LayoutEngine {
   private options: LayoutOptions;
-  private _cache: Map<string, NodeLayout> = new Map();
-  private _connectionCache: Map<string, ConnectionLayout> = new Map();
-  private _dirtySubtrees: Set<string> = new Set();
+  private _cache = new Map<string, NodeLayout>();
+  private _connCache = new Map<string, ConnectionLayout>();
+  private _dirty = new Set<string>();
 
   constructor(options?: Partial<LayoutOptions>) {
     this.options = { ...DEFAULT_LAYOUT_OPTIONS, ...options };
@@ -60,18 +58,59 @@ export class MapLayoutEngine implements LayoutEngine {
 
   clearCache(): void {
     this._cache.clear();
-    this._connectionCache.clear();
-    this._dirtySubtrees.clear();
+    this._connCache.clear();
+    this._dirty.clear();
   }
 
-  private isSubtreeDirty(nodeId: string, dirtyNodes?: Set<string>): boolean {
-    if (!dirtyNodes) return true;
-    if (dirtyNodes.has(nodeId)) return true;
-    return this._dirtySubtrees.has(nodeId);
+  private isDirty(id: string, dirty?: Set<string>) {
+    return !dirty || dirty.has(id) || this._dirty.has(id);
+  }
+  private markDirty(id: string) {
+    this._dirty.add(id);
   }
 
-  private markSubtreeDirty(nodeId: string): void {
-    this._dirtySubtrees.add(nodeId);
+  private getNodeSize(node: MindMapNode): Size {
+    if (this.options.nodeSizeProvider) {
+      const s = this.options.nodeSizeProvider(node.id);
+      if (s) return s;
+    }
+    return { width: this.estW(node), height: this.estH(node) };
+  }
+
+  private estW(node: MindMapNode): number {
+    const l = node.title.length,
+      fs = 14;
+    return Math.max(120, Math.min(300, l * fs * 0.6 + 32));
+  }
+  private estH(node: MindMapNode): number {
+    let h = 14 * 1.5 + 24;
+    if (node.image) h += 70;
+    if (node.markers?.length) h += 24;
+    return Math.max(36, h);
+  }
+
+  private splitW(children: MindMapNode[]): number {
+    if (children.length <= 1) return children.length;
+    const tw = children.reduce((s, c) => s + this.getWeight(c), 0);
+    const hw = tw / 2;
+    let rw = 0,
+      li = -1;
+    for (let i = 0; i < children.length; i++) {
+      const w = this.getWeight(children[i]!);
+      const nrw = rw + w;
+      if (nrw >= hw) {
+        if (li >= 0 && nrw - hw > hw - rw) return li + 1;
+        return i + 1;
+      }
+      rw = nrw;
+      li = i;
+    }
+    return children.length;
+  }
+  private getWeight(n: MindMapNode) {
+    return (
+      this.getNodeSize(n).height + (this.options.verticalSpacing ?? 20) * 2
+    );
   }
 
   calculate(
@@ -80,526 +119,279 @@ export class MapLayoutEngine implements LayoutEngine {
     dirtyNodes?: Set<string>,
   ): LayoutResult {
     const opts = { ...this.options, ...options };
-
-    if (dirtyNodes !== undefined && dirtyNodes.size === 0) {
-      if (this._cache.size > 0) {
-        return {
-          nodes: new Map(this._cache),
-          connections: new Map(this._connectionCache),
-          bounds: this.calculateTotalBounds(this._cache),
-        };
-      }
-    }
-
-    if (dirtyNodes && dirtyNodes.size > 0) {
-      for (const dirtyId of dirtyNodes) {
-        this.markSubtreeDirty(dirtyId);
-      }
-    }
-
+    if (dirtyNodes?.size) for (const d of dirtyNodes) this.markDirty(d);
     const nodes = new Map<string, NodeLayout>();
     const connections = new Map<string, ConnectionLayout>();
 
-    const rootDirty = this.isSubtreeDirty(root.id, dirtyNodes);
-    let rootLayout: NodeLayout;
+    // 1. bottom-up subtree sizes
+    const subtreeSizes = new Map<string, Size>();
+    this.calcSubBounds(root, opts, subtreeSizes);
 
-    if (!rootDirty && this._cache.has(root.id)) {
-      rootLayout = { ...this._cache.get(root.id)! };
-    } else {
-      rootLayout = this.calculateNodeLayout(root, opts);
+    // 2. top-down positions
+    this.assignPos(root, 0, 0, opts, subtreeSizes, nodes, connections);
+
+    // 3. center root relative to left/right children
+    this.centerRoot(root, nodes, connections, opts);
+
+    // 4. cache
+    for (const [k, v] of nodes) this._cache.set(k, v);
+    for (const [k, v] of connections) this._connCache.set(k, v);
+    if (dirtyNodes) for (const d of dirtyNodes) this._dirty.delete(d);
+
+    const bounds = this.calcBounds(nodes);
+    updateChildrenBounds(root, nodes);
+    return { nodes, connections, bounds };
+  }
+
+  private calcSubBounds(
+    node: MindMapNode,
+    opts: LayoutOptions,
+    out: Map<string, Size>,
+  ): Size {
+    const sz = this.getNodeSize(node);
+    const kids = node.attachedChildren;
+    if (!kids.length) {
+      out.set(node.id, sz);
+      return sz;
     }
-    nodes.set(root.id, rootLayout);
+    const childSubs = kids.map((c) => this.calcSubBounds(c, opts, out));
+    const totalH =
+      childSubs.reduce((s, c) => s + c.height, 0) +
+      (kids.length - 1) * opts.verticalSpacing;
+    const maxW = Math.max(...childSubs.map((c) => c.width), 0);
+    const subW = sz.width + opts.horizontalSpacing + maxW;
+    const subH = Math.max(sz.height, totalH);
+    const res = { width: subW, height: subH };
+    out.set(node.id, res);
+    return res;
+  }
 
-    const attachedChildren = root.attachedChildren;
-    if (attachedChildren.length > 0) {
-      const { rightChildren, leftChildren } = this.splitChildren(
-        attachedChildren,
-        opts,
-      );
-
-      const rightBounds = this.calculateSide(
-        root,
+  private assignPos(
+    node: MindMapNode,
+    x: number,
+    y: number,
+    opts: LayoutOptions,
+    subs: Map<string, Size>,
+    nodes: Map<string, NodeLayout>,
+    connections: Map<string, ConnectionLayout>,
+  ): void {
+    const sz = this.getNodeSize(node);
+    const nl: NodeLayout = {
+      id: node.id,
+      x,
+      y,
+      width: sz.width,
+      height: sz.height,
+      childrenBounds: { x, y, width: sz.width, height: sz.height },
+    };
+    nodes.set(node.id, nl);
+    const kids = node.attachedChildren;
+    if (!kids.length) return;
+    const { rightChildren, leftChildren } = this.splitKids(kids, opts);
+    if (rightChildren.length)
+      this.layoutSide(
+        nl,
         rightChildren,
         "right",
+        opts,
+        subs,
         nodes,
         connections,
-        opts,
-        dirtyNodes,
       );
-      const leftBounds = this.calculateSide(
-        root,
-        leftChildren,
-        "left",
-        nodes,
-        connections,
-        opts,
-        dirtyNodes,
-      );
-
-      this.centerRoot(rootLayout, rightBounds, leftBounds, opts);
-    }
-
-    for (const [id, layout] of nodes) {
-      this._cache.set(id, layout);
-    }
-    for (const [id, conn] of connections) {
-      this._connectionCache.set(id, conn);
-    }
-
-    if (dirtyNodes) {
-      for (const id of dirtyNodes) {
-        this._dirtySubtrees.delete(id);
-      }
-    }
-
-    const bounds = this.calculateTotalBounds(this._cache);
-
-    updateChildrenBounds(root, this._cache);
-
-    return { nodes: this._cache, connections: this._connectionCache, bounds };
+    if (leftChildren.length)
+      this.layoutSide(nl, leftChildren, "left", opts, subs, nodes, connections);
   }
 
-  calculateNodeSize(node: MindMapNode): Size {
+  private splitKids(children: MindMapNode[], opts: LayoutOptions) {
+    const n = this.splitW(children);
     return {
-      width: this.estimateNodeWidth(node),
-      height: this.estimateNodeHeight(node),
+      rightChildren: children.slice(0, n),
+      leftChildren: children.slice(n),
     };
   }
 
-  calculateConnectionPath(from: NodeLayout, to: NodeLayout): string {
-    const isRight = to.x > from.x;
-
-    const startX = isRight ? from.x + from.width : from.x;
-    const startY = from.y + from.height / 2;
-
-    const endX = isRight ? to.x : to.x + to.width;
-    const endY = to.y + to.height / 2;
-
-    const controlOffset = this.options.horizontalSpacing * 0.4;
-
-    return `M ${startX} ${startY} C ${startX + (isRight ? controlOffset : -controlOffset)} ${startY}, ${endX + (isRight ? -controlOffset : controlOffset)} ${endY}, ${endX} ${endY}`;
-  }
-
-  private calculateNodeLayout(
-    node: MindMapNode,
-    options: LayoutOptions,
-  ): NodeLayout {
-    const width = this.estimateNodeWidth(node);
-    const height = this.estimateNodeHeight(node);
-
-    return {
-      id: node.id,
-      x: 0,
-      y: 0,
-      width,
-      height,
-      childrenBounds: { x: 0, y: 0, width: 0, height: 0 },
-    };
-  }
-
-  private estimateNodeWidth(node: MindMapNode): number {
-    const titleLength = node.title.length;
-    const fontSize = 14;
-    const minWidth = 120;
-    const maxWidth = 300;
-
-    const estimatedWidth = titleLength * fontSize * 0.6 + 32;
-    return Math.max(minWidth, Math.min(maxWidth, estimatedWidth));
-  }
-
-  private estimateNodeHeight(node: MindMapNode): number {
-    const fontSize = 14;
-    const hasImage = !!node.image;
-    const hasMarkers = node.markers && node.markers.length > 0;
-
-    let height = fontSize * 1.5 + 24;
-    if (hasImage) height += 70;
-    if (hasMarkers) height += 24;
-
-    return Math.max(40, height);
-  }
-
-  private splitChildren(
-    children: MindMapNode[],
-    options: LayoutOptions,
-  ): { rightChildren: MindMapNode[]; leftChildren: MindMapNode[] } {
-    const numRight = this.calcNumRight(children);
-
-    return {
-      rightChildren: children.slice(0, numRight),
-      leftChildren: children.slice(numRight),
-    };
-  }
-
-  private calcNumRight(children: MindMapNode[]): number {
-    if (children.length <= 1) return children.length;
-
-    const totalWeight = children.reduce(
-      (sum, child) => sum + this.getWeight(child),
-      0,
-    );
-    const halfWeight = totalWeight / 2;
-
-    let rightWeight = 0;
-    let lastIndex = -1;
-
-    for (let i = 0; i < children.length; i++) {
-      const weight = this.getWeight(children[i]!);
-      const newRightWeight = rightWeight + weight;
-
-      if (newRightWeight >= halfWeight) {
-        if (
-          lastIndex >= 0 &&
-          newRightWeight - halfWeight > halfWeight - rightWeight
-        ) {
-          return lastIndex + 1;
-        }
-        return i + 1;
-      }
-
-      rightWeight = newRightWeight;
-      lastIndex = i;
-    }
-
-    return children.length;
-  }
-
-  private getWeight(node: MindMapNode): number {
-    const height = this.estimateNodeHeight(node);
-    return height + this.options.verticalSpacing * 2;
-  }
-
-  private isSubtreeClean(node: MindMapNode, dirtyNodes?: Set<string>): boolean {
-    if (!dirtyNodes) return false;
-    if (dirtyNodes.has(node.id)) return false;
-
-    const children = node.attachedChildren;
-    for (const child of children) {
-      if (!this.isSubtreeClean(child, dirtyNodes)) return false;
-    }
-    return true;
-  }
-
-  private calculateSide(
-    rootNode: MindMapNode,
-    children: MindMapNode[],
+  private layoutSide(
+    parent: NodeLayout,
+    kids: MindMapNode[],
     side: "left" | "right",
-    nodes: Map<string, NodeLayout>,
-    connections: Map<string, ConnectionLayout>,
-    options: LayoutOptions,
-    dirtyNodes?: Set<string>,
-  ): Bounds | null {
-    if (children.length === 0) return null;
-
-    const rootLayout = nodes.get(rootNode.id)!;
-    const childLayouts: NodeLayout[] = [];
-    const needsReposition = dirtyNodes
-      ? this.isSubtreeDirty(rootNode.id, dirtyNodes)
-      : true;
-
-    for (const child of children) {
-      let childLayout: NodeLayout;
-      const childDirty = dirtyNodes
-        ? this.isSubtreeDirty(child.id, dirtyNodes)
-        : true;
-
-      if (!childDirty && this._cache.has(child.id)) {
-        childLayout = { ...this._cache.get(child.id)! };
-        nodes.set(child.id, childLayout);
-
-        if (child.hasChildren) {
-          this.copyCachedDescendants(child, nodes, connections);
-        }
-      } else {
-        childLayout = this.calculateNodeLayout(child, options);
-        childLayouts.push(childLayout);
-        nodes.set(child.id, childLayout);
-
-        if (child.hasChildren) {
-          this.calculateDescendants(
-            child,
-            childLayout,
-            side,
-            nodes,
-            connections,
-            options,
-            dirtyNodes,
-          );
-        }
-      }
-    }
-
-    if (needsReposition && childLayouts.length > 0) {
-      this.positionChildren(
-        rootLayout,
-        childLayouts,
-        side,
-        options,
-        rootNode.id,
-      );
-    }
-
-    for (const child of children) {
-      const childLayout = nodes.get(child.id)!;
-      const connectionId = `${rootNode.id}-${child.id}`;
-
-      if (!connections.has(connectionId) || needsReposition) {
-        connections.set(connectionId, {
-          id: connectionId,
-          fromId: rootNode.id,
-          toId: child.id,
-          path: this.calculateConnectionPath(rootLayout, childLayout),
-          startPoint: {
-            x:
-              side === "right" ? rootLayout.x + rootLayout.width : rootLayout.x,
-            y: rootLayout.y + rootLayout.height / 2,
-          },
-          endPoint: {
-            x:
-              side === "right"
-                ? childLayout.x
-                : childLayout.x + childLayout.width,
-            y: childLayout.y + childLayout.height / 2,
-          },
-          controlPoints: [],
-        });
-      }
-    }
-
-    return this.calculateBoundsFromLayouts(
-      childLayouts.length > 0
-        ? childLayouts
-        : Array.from(nodes.values()).filter((n) =>
-            children.some((c) => c.id === n.id),
-          ),
-    );
-  }
-
-  private copyCachedDescendants(
-    parentNode: MindMapNode,
+    opts: LayoutOptions,
+    subs: Map<string, Size>,
     nodes: Map<string, NodeLayout>,
     connections: Map<string, ConnectionLayout>,
   ): void {
-    const children = parentNode.attachedChildren;
-    for (const child of children) {
-      if (this._cache.has(child.id)) {
-        const childLayout = { ...this._cache.get(child.id)! };
-        nodes.set(child.id, childLayout);
-
-        const connectionId = `${parentNode.id}-${child.id}`;
-        if (this._connectionCache.has(connectionId)) {
-          connections.set(
-            connectionId,
-            this._connectionCache.get(connectionId)!,
-          );
-        }
-
-        if (child.hasChildren) {
-          this.copyCachedDescendants(child, nodes, connections);
-        }
-      }
+    const h = opts.horizontalSpacing,
+      v = opts.verticalSpacing;
+    const childSubs = kids.map((c) => subs.get(c.id)!);
+    const totalH =
+      childSubs.reduce((s, c) => s + c.height, 0) + (kids.length - 1) * v;
+    const startY = parent.y + parent.height / 2 - totalH / 2;
+    const baseX = side === "right" ? parent.x + parent.width + h : parent.x - h;
+    let curY = startY;
+    for (let i = 0; i < kids.length; i++) {
+      const child = kids[i]!,
+        sub = childSubs[i]!;
+      const cSz = this.getNodeSize(child);
+      const cx = side === "right" ? baseX : baseX - sub.width;
+      const cy = curY + (sub.height - cSz.height) / 2;
+      this.assignPos(child, cx, cy, opts, subs, nodes, connections);
+      const cl = nodes.get(child.id)!;
+      const cid = `${parent.id}-${child.id}`;
+      connections.set(cid, {
+        id: cid,
+        fromId: parent.id,
+        toId: child.id,
+        path: this.connPath(parent, cl, side),
+        startPoint: {
+          x: side === "right" ? parent.x + parent.width : parent.x,
+          y: parent.y + parent.height / 2,
+        },
+        endPoint: {
+          x: side === "right" ? cl.x : cl.x + cl.width,
+          y: cl.y + cl.height / 2,
+        },
+        controlPoints: [],
+      });
+      curY += sub.height + v;
     }
   }
 
-  private calculateDescendants(
-    parentNode: MindMapNode,
-    parentLayout: NodeLayout,
-    side: "left" | "right",
-    nodes: Map<string, NodeLayout>,
-    connections: Map<string, ConnectionLayout>,
-    options: LayoutOptions,
-    dirtyNodes?: Set<string>,
-  ): void {
-    const children = parentNode.attachedChildren;
-    if (children.length === 0) return;
-
-    const childLayouts: NodeLayout[] = [];
-
-    for (const child of children) {
-      let childLayout: NodeLayout;
-      const childDirty = dirtyNodes
-        ? this.isSubtreeDirty(child.id, dirtyNodes)
-        : true;
-
-      if (!childDirty && this._cache.has(child.id)) {
-        childLayout = { ...this._cache.get(child.id)! };
-        nodes.set(child.id, childLayout);
-
-        if (child.hasChildren) {
-          this.copyCachedDescendants(child, nodes, connections);
-        }
-      } else {
-        childLayout = this.calculateNodeLayout(child, options);
-        childLayouts.push(childLayout);
-        nodes.set(child.id, childLayout);
-
-        if (child.hasChildren) {
-          this.calculateDescendants(
-            child,
-            childLayout,
-            side,
-            nodes,
-            connections,
-            options,
-            dirtyNodes,
-          );
-        }
-      }
-    }
-
-    if (childLayouts.length > 0) {
-      this.positionChildren(
-        parentLayout,
-        childLayouts,
-        side,
-        options,
-        parentNode.id,
-      );
-    }
-
-    for (const child of children) {
-      const childLayout = nodes.get(child.id)!;
-      const connectionId = `${parentNode.id}-${child.id}`;
-
-      if (!connections.has(connectionId)) {
-        connections.set(connectionId, {
-          id: connectionId,
-          fromId: parentNode.id,
-          toId: child.id,
-          path: this.calculateConnectionPath(parentLayout, childLayout),
-          startPoint: {
-            x:
-              side === "right"
-                ? parentLayout.x + parentLayout.width
-                : parentLayout.x,
-            y: parentLayout.y + parentLayout.height / 2,
-          },
-          endPoint: {
-            x:
-              side === "right"
-                ? childLayout.x
-                : childLayout.x + childLayout.width,
-            y: childLayout.y + childLayout.height / 2,
-          },
-          controlPoints: [],
-        });
-      }
-    }
-  }
-
-  private positionChildren(
-    parentLayout: NodeLayout,
-    childLayouts: NodeLayout[],
-    side: "left" | "right",
-    options: LayoutOptions,
-    parentNodeId?: string,
-  ): void {
-    if (childLayouts.length === 0) return;
-
-    // Resolve per-node spacing override
-    let hSpacing = options.horizontalSpacing;
-    let vSpacing = options.verticalSpacing;
-    if (parentNodeId && options.nodeSpacingResolver) {
-      const override = options.nodeSpacingResolver(parentNodeId);
-      if (override) {
-        hSpacing = override[0];
-        vSpacing = override[1];
-      }
-    }
-
-    const totalHeight =
-      childLayouts.reduce((sum, layout) => sum + layout.height, 0) +
-      (childLayouts.length - 1) * vSpacing;
-
-    let currentY = parentLayout.y + parentLayout.height / 2 - totalHeight / 2;
-
-    for (const childLayout of childLayouts) {
-      childLayout.y = currentY;
-
-      if (side === "right") {
-        childLayout.x = parentLayout.x + parentLayout.width + hSpacing;
-      } else {
-        childLayout.x = parentLayout.x - childLayout.width - hSpacing;
-      }
-
-      currentY += childLayout.height + vSpacing;
-    }
+  private connPath(
+    from: NodeLayout,
+    to: NodeLayout,
+    side?: "left" | "right",
+  ): string {
+    const isR = side === "right" || (!side && to.x > from.x);
+    const sx = isR ? from.x + from.width : from.x;
+    const sy = from.y + from.height / 2;
+    const ex = isR ? to.x : to.x + to.width;
+    const ey = to.y + to.height / 2;
+    const co = (this.options.horizontalSpacing ?? 40) * 0.4;
+    return `M ${sx} ${sy} C ${sx + (isR ? co : -co)} ${sy}, ${ex + (isR ? -co : co)} ${ey}, ${ex} ${ey}`;
   }
 
   private centerRoot(
-    rootLayout: NodeLayout,
-    rightBounds: Bounds | null,
-    leftBounds: Bounds | null,
-    options: LayoutOptions,
+    root: MindMapNode,
+    nodes: Map<string, NodeLayout>,
+    connections: Map<string, ConnectionLayout>,
+    opts: LayoutOptions,
   ): void {
-    if (!rightBounds && !leftBounds) return;
-
-    let centerY = 0;
-
-    if (rightBounds && leftBounds) {
-      centerY =
-        (rightBounds.y +
-          rightBounds.height / 2 +
-          leftBounds.y +
-          leftBounds.height / 2) /
-        2;
-    } else if (rightBounds) {
-      centerY = rightBounds.y + rightBounds.height / 2;
-    } else if (leftBounds) {
-      centerY = leftBounds.y + leftBounds.height / 2;
+    const rl = nodes.get(root.id);
+    if (!rl) return;
+    const kids = root.attachedChildren;
+    if (!kids.length) return;
+    const { rightChildren, leftChildren } = this.splitKids(kids, opts);
+    let rMinY = Infinity,
+      rMaxY = -Infinity,
+      rMaxX = -Infinity;
+    let lMinY = Infinity,
+      lMaxY = -Infinity,
+      lMaxX = -Infinity;
+    for (const c of rightChildren) {
+      const l = nodes.get(c.id);
+      if (l) {
+        rMinY = Math.min(rMinY, l.y);
+        rMaxY = Math.max(rMaxY, l.y + l.height);
+        rMaxX = Math.max(rMaxX, l.x + l.width);
+      }
     }
-
-    rootLayout.y = centerY - rootLayout.height / 2;
-
-    if (rightBounds) {
-      rootLayout.x =
-        rightBounds.x - rootLayout.width - options.horizontalSpacing;
-    } else if (leftBounds) {
-      rootLayout.x =
-        leftBounds.x + leftBounds.width + options.horizontalSpacing;
+    for (const c of leftChildren) {
+      const l = nodes.get(c.id);
+      if (l) {
+        lMinY = Math.min(lMinY, l.y);
+        lMaxY = Math.max(lMaxY, l.y + l.height);
+        lMaxX = Math.max(lMaxX, l.x + l.width);
+      }
     }
+    let cy = 0;
+    if (rightChildren.length && leftChildren.length)
+      cy = (rMinY + rMaxY + lMinY + lMaxY) / 4;
+    else if (rightChildren.length) cy = (rMinY + rMaxY) / 2;
+    else if (leftChildren.length) cy = (lMinY + lMaxY) / 2;
+    rl.y = cy - rl.height / 2;
+    rl.x = leftChildren.length ? lMaxX + opts.horizontalSpacing : 0;
+    const shiftX = rl.x + rl.width + opts.horizontalSpacing;
+    for (const c of rightChildren)
+      this.shiftTree(
+        c,
+        shiftX - (nodes.get(c.id)?.x ?? 0),
+        0,
+        nodes,
+        connections,
+      );
   }
 
-  private calculateBoundsFromLayouts(layouts: NodeLayout[]): Bounds {
-    if (layouts.length === 0) {
-      return { x: 0, y: 0, width: 0, height: 0 };
+  private shiftTree(
+    node: MindMapNode,
+    dx: number,
+    dy: number,
+    nodes: Map<string, NodeLayout>,
+    connections: Map<string, ConnectionLayout>,
+  ): void {
+    const l = nodes.get(node.id);
+    if (!l) return;
+    l.x += dx;
+    l.y += dy;
+    l.childrenBounds.x += dx;
+    l.childrenBounds.y += dy;
+    for (const [, c] of connections) {
+      if (c.fromId === node.id) {
+        c.startPoint.x += dx;
+        c.startPoint.y += dy;
+        c.path = this.rebuild(c);
+      }
+      if (c.toId === node.id) {
+        c.endPoint.x += dx;
+        c.endPoint.y += dy;
+        c.path = this.rebuild(c);
+      }
     }
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const layout of layouts) {
-      minX = Math.min(minX, layout.x);
-      minY = Math.min(minY, layout.y);
-      maxX = Math.max(maxX, layout.x + layout.width);
-      maxY = Math.max(maxY, layout.y + layout.height);
-    }
-
-    return {
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      height: maxY - minY,
-    };
+    for (const c of node.attachedChildren)
+      this.shiftTree(c, dx, dy, nodes, connections);
   }
 
-  private calculateTotalBounds(nodes: Map<string, NodeLayout>): Bounds {
-    const layouts = Array.from(nodes.values());
-    return this.calculateBoundsFromLayouts(layouts);
+  private rebuild(c: ConnectionLayout): string {
+    const dx = c.endPoint.x - c.startPoint.x;
+    const co = Math.max(40, Math.abs(dx) * 0.4);
+    const c1x = c.startPoint.x + (dx >= 0 ? co : -co);
+    const c2x = c.endPoint.x - (dx >= 0 ? co : -co);
+    return `M ${c.startPoint.x} ${c.startPoint.y} C ${c1x} ${c.startPoint.y}, ${c2x} ${c.endPoint.y}, ${c.endPoint.x} ${c.endPoint.y}`;
+  }
+
+  calculateNodeSize(node: MindMapNode): Size {
+    return this.getNodeSize(node);
+  }
+  calculateConnectionPath(from: NodeLayout, to: NodeLayout): string {
+    return this.connPath(from, to);
+  }
+
+  private calcBounds(nodes: Map<string, NodeLayout>): Bounds {
+    const ls = Array.from(nodes.values());
+    if (!ls.length) return { x: 0, y: 0, width: 0, height: 0 };
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const l of ls) {
+      minX = Math.min(minX, l.x);
+      minY = Math.min(minY, l.y);
+      maxX = Math.max(maxX, l.x + l.width);
+      maxY = Math.max(maxY, l.y + l.height);
+    }
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  }
+
+  private calcTotalBounds(nodes: Map<string, NodeLayout>): Bounds {
+    return this.calcBounds(nodes);
   }
 }
 
+// ---------- TreeLayoutEngine (keep existing) ----------
 export class TreeLayoutEngine implements LayoutEngine {
   private options: LayoutOptions;
-
   constructor(options?: Partial<LayoutOptions>) {
     this.options = { ...DEFAULT_LAYOUT_OPTIONS, ...options };
   }
-
   clearCache(): void {}
-
   calculate(
     root: MindMapNode,
     options?: LayoutOptions,
@@ -608,153 +400,97 @@ export class TreeLayoutEngine implements LayoutEngine {
     const opts = { ...this.options, ...options };
     const nodes = new Map<string, NodeLayout>();
     const connections = new Map<string, ConnectionLayout>();
-
-    const rootLayout = this.calculateNodeLayout(root, opts);
+    const rootLayout = this.calcNode(root, opts);
     nodes.set(root.id, rootLayout);
-
-    this.calculateChildren(root, rootLayout, nodes, connections, opts);
-
-    const bounds = this.calculateTotalBounds(nodes);
-
+    this.calcChildren(root, rootLayout, nodes, connections, opts);
+    const bounds = this.calcBounds(nodes);
     updateChildrenBounds(root, nodes);
-
     return { nodes, connections, bounds };
   }
-
   calculateNodeSize(node: MindMapNode): Size {
-    return {
-      width: this.estimateNodeWidth(node),
-      height: this.estimateNodeHeight(node),
-    };
+    return { width: this.estW(node), height: this.estH(node) };
   }
-
   calculateConnectionPath(from: NodeLayout, to: NodeLayout): string {
-    const startX = from.x + from.width / 2;
-    const startY = from.y + from.height;
-
-    const endX = to.x + to.width / 2;
-    const endY = to.y;
-
-    return `M ${startX} ${startY} L ${endX} ${endY}`;
+    return `M ${from.x + from.width / 2} ${from.y + from.height} L ${to.x + to.width / 2} ${to.y}`;
   }
-
-  private calculateNodeLayout(
-    node: MindMapNode,
-    options: LayoutOptions,
-  ): NodeLayout {
+  private calcNode(node: MindMapNode, options: LayoutOptions): NodeLayout {
     return {
       id: node.id,
       x: 0,
       y: 0,
-      width: this.estimateNodeWidth(node),
-      height: this.estimateNodeHeight(node),
+      width: this.estW(node),
+      height: this.estH(node),
       childrenBounds: { x: 0, y: 0, width: 0, height: 0 },
     };
   }
-
-  private estimateNodeWidth(node: MindMapNode): number {
-    const titleLength = node.title.length;
-    const fontSize = 14;
-    return Math.max(100, Math.min(200, titleLength * fontSize * 0.6 + 32));
+  private estW(node: MindMapNode) {
+    const l = node.title.length;
+    return Math.max(100, Math.min(200, l * 14 * 0.6 + 32));
   }
-
-  private estimateNodeHeight(node: MindMapNode): number {
+  private estH(node: MindMapNode) {
     return 40;
   }
-
-  private calculateChildren(
-    parentNode: MindMapNode,
-    parentLayout: NodeLayout,
+  private calcChildren(
+    parent: MindMapNode,
+    pl: NodeLayout,
     nodes: Map<string, NodeLayout>,
     connections: Map<string, ConnectionLayout>,
     options: LayoutOptions,
   ): void {
-    const children = parentNode.attachedChildren;
-    if (children.length === 0) return;
-
-    const childLayouts: NodeLayout[] = [];
-
-    for (const child of children) {
-      const childLayout = this.calculateNodeLayout(child, options);
-      childLayouts.push(childLayout);
-      nodes.set(child.id, childLayout);
+    const kids = parent.attachedChildren;
+    if (!kids.length) return;
+    const cls: NodeLayout[] = [];
+    for (const c of kids) {
+      const cl = this.calcNode(c, options);
+      cls.push(cl);
+      nodes.set(c.id, cl);
     }
-
-    const totalWidth =
-      childLayouts.reduce((sum, layout) => sum + layout.width, 0) +
-      (childLayouts.length - 1) * options.horizontalSpacing;
-
-    let currentX = parentLayout.x + parentLayout.width / 2 - totalWidth / 2;
-
-    for (const childLayout of childLayouts) {
-      childLayout.x = currentX;
-      childLayout.y =
-        parentLayout.y + parentLayout.height + options.verticalSpacing;
-
-      const connectionId = `${parentNode.id}-${childLayout.id}`;
-      connections.set(connectionId, {
-        id: connectionId,
-        fromId: parentNode.id,
-        toId: childLayout.id,
-        path: this.calculateConnectionPath(parentLayout, childLayout),
-        startPoint: {
-          x: parentLayout.x + parentLayout.width / 2,
-          y: parentLayout.y + parentLayout.height,
-        },
-        endPoint: {
-          x: childLayout.x + childLayout.width / 2,
-          y: childLayout.y,
-        },
+    const totalW =
+      cls.reduce((s, l) => s + l.width, 0) +
+      (cls.length - 1) * options.horizontalSpacing;
+    let cx = pl.x + pl.width / 2 - totalW / 2;
+    for (const cl of cls) {
+      cl.x = cx;
+      cl.y = pl.y + pl.height + options.verticalSpacing;
+      const id = `${parent.id}-${cl.id}`;
+      connections.set(id, {
+        id,
+        fromId: parent.id,
+        toId: cl.id,
+        path: this.calculateConnectionPath(pl, cl),
+        startPoint: { x: pl.x + pl.width / 2, y: pl.y + pl.height },
+        endPoint: { x: cl.x + cl.width / 2, y: cl.y },
         controlPoints: [],
       });
-
-      currentX += childLayout.width + options.horizontalSpacing;
-
-      const childNode = nodes.get(childLayout.id);
-      if (childNode) {
-        const child = children.find((c) => c.id === childLayout.id);
-        if (child) {
-          this.calculateChildren(
-            child,
-            childLayout,
-            nodes,
-            connections,
-            options,
-          );
-        }
-      }
+      cx += cl.width + options.horizontalSpacing;
+      const child = kids.find((k) => k.id === cl.id);
+      if (child) this.calcChildren(child, cl, nodes, connections, options);
     }
   }
-
-  private calculateTotalBounds(nodes: Map<string, NodeLayout>): Bounds {
-    const layouts = Array.from(nodes.values());
-    if (layouts.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const layout of layouts) {
-      minX = Math.min(minX, layout.x);
-      minY = Math.min(minY, layout.y);
-      maxX = Math.max(maxX, layout.x + layout.width);
-      maxY = Math.max(maxY, layout.y + layout.height);
+  private calcBounds(nodes: Map<string, NodeLayout>): Bounds {
+    const ls = Array.from(nodes.values());
+    if (!ls.length) return { x: 0, y: 0, width: 0, height: 0 };
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const l of ls) {
+      minX = Math.min(minX, l.x);
+      minY = Math.min(minY, l.y);
+      maxX = Math.max(maxX, l.x + l.width);
+      maxY = Math.max(maxY, l.y + l.height);
     }
-
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 }
 
+// ---------- FishboneLayoutEngine (keep existing) ----------
 export class FishboneLayoutEngine implements LayoutEngine {
   private options: LayoutOptions;
-
   constructor(options?: Partial<LayoutOptions>) {
     this.options = { ...DEFAULT_LAYOUT_OPTIONS, ...options };
   }
-
   clearCache(): void {}
-
   calculate(
     root: MindMapNode,
     options?: LayoutOptions,
@@ -763,140 +499,96 @@ export class FishboneLayoutEngine implements LayoutEngine {
     const opts = { ...this.options, ...options };
     const nodes = new Map<string, NodeLayout>();
     const connections = new Map<string, ConnectionLayout>();
-
-    const rootLayout = this.calculateNodeLayout(root, opts);
+    const rootLayout = this.calcNode(root, opts);
     nodes.set(root.id, rootLayout);
-
-    this.calculateChildren(root, rootLayout, nodes, connections, opts);
-
-    const bounds = this.calculateTotalBounds(nodes);
-
+    this.calcChildren(root, rootLayout, nodes, connections, opts);
+    const bounds = this.calcBounds(nodes);
     updateChildrenBounds(root, nodes);
-
     return { nodes, connections, bounds };
   }
-
   calculateNodeSize(node: MindMapNode): Size {
-    return {
-      width: this.estimateNodeWidth(node),
-      height: this.estimateNodeHeight(node),
-    };
+    return { width: this.estW(node), height: this.estH(node) };
   }
-
   calculateConnectionPath(from: NodeLayout, to: NodeLayout): string {
-    const startX = from.x + from.width;
-    const startY = from.y + from.height / 2;
-
-    const endX = to.x;
-    const endY = to.y + to.height / 2;
-
-    const midX = (startX + endX) / 2;
-
-    return `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
+    const sx = from.x + from.width,
+      sy = from.y + from.height / 2;
+    const ex = to.x,
+      ey = to.y + to.height / 2;
+    const mx = (sx + ex) / 2;
+    return `M ${sx} ${sy} L ${mx} ${sy} L ${mx} ${ey} L ${ex} ${ey}`;
   }
-
-  private calculateNodeLayout(
-    node: MindMapNode,
-    options: LayoutOptions,
-  ): NodeLayout {
+  private calcNode(node: MindMapNode, options: LayoutOptions): NodeLayout {
     return {
       id: node.id,
       x: 0,
       y: 0,
-      width: this.estimateNodeWidth(node),
-      height: this.estimateNodeHeight(node),
+      width: this.estW(node),
+      height: this.estH(node),
       childrenBounds: { x: 0, y: 0, width: 0, height: 0 },
     };
   }
-
-  private estimateNodeWidth(node: MindMapNode): number {
-    const titleLength = node.title.length;
-    return Math.max(80, Math.min(150, titleLength * 8 + 32));
+  private estW(node: MindMapNode) {
+    return Math.max(80, Math.min(150, node.title.length * 8 + 32));
   }
-
-  private estimateNodeHeight(node: MindMapNode): number {
+  private estH(node: MindMapNode) {
     return 30;
   }
-
-  private calculateChildren(
-    parentNode: MindMapNode,
-    parentLayout: NodeLayout,
+  private calcChildren(
+    parent: MindMapNode,
+    pl: NodeLayout,
     nodes: Map<string, NodeLayout>,
     connections: Map<string, ConnectionLayout>,
     options: LayoutOptions,
   ): void {
-    const children = parentNode.attachedChildren;
-    if (children.length === 0) return;
-
-    const mainLineLength = children.length * 60;
-    const mainLineY = parentLayout.y + parentLayout.height / 2;
-
-    const currentX = parentLayout.x + parentLayout.width + 20;
-
-    for (let i = 0; i < children.length; i++) {
-      const child = children[i];
+    const kids = parent.attachedChildren;
+    if (!kids.length) return;
+    const mly = pl.y + pl.height / 2;
+    const baseX = pl.x + pl.width + 20;
+    for (let i = 0; i < kids.length; i++) {
+      const child = kids[i];
       if (!child) continue;
-      const childLayout = this.calculateNodeLayout(child, options);
-
-      const isTop = i % 2 === 0;
-      const angle = isTop ? -45 : 45;
-      const offset = (i + 1) * 40;
-
-      childLayout.x = currentX + offset * Math.cos((angle * Math.PI) / 180);
-      childLayout.y =
-        mainLineY +
-        offset * Math.sin((angle * Math.PI) / 180) -
-        childLayout.height / 2;
-
-      nodes.set(child.id, childLayout);
-
-      const connectionId = `${parentNode.id}-${child.id}`;
-      connections.set(connectionId, {
-        id: connectionId,
-        fromId: parentNode.id,
+      const cl = this.calcNode(child, options);
+      const top = i % 2 === 0,
+        angle = top ? -45 : 45;
+      const off = (i + 1) * 40;
+      cl.x = baseX + off * Math.cos((angle * Math.PI) / 180);
+      cl.y = mly + off * Math.sin((angle * Math.PI) / 180) - cl.height / 2;
+      nodes.set(child.id, cl);
+      const id = `${parent.id}-${child.id}`;
+      connections.set(id, {
+        id,
+        fromId: parent.id,
         toId: child.id,
-        path: this.calculateConnectionPath(parentLayout, childLayout),
-        startPoint: {
-          x: parentLayout.x + parentLayout.width,
-          y: mainLineY,
-        },
-        endPoint: {
-          x: childLayout.x,
-          y: childLayout.y + childLayout.height / 2,
-        },
+        path: this.calculateConnectionPath(pl, cl),
+        startPoint: { x: pl.x + pl.width, y: mly },
+        endPoint: { x: cl.x, y: cl.y + cl.height / 2 },
         controlPoints: [],
       });
-
-      if (child.hasChildren) {
-        this.calculateChildren(child, childLayout, nodes, connections, options);
-      }
+      if (child.hasChildren)
+        this.calcChildren(child, cl, nodes, connections, options);
     }
   }
-
-  private calculateTotalBounds(nodes: Map<string, NodeLayout>): Bounds {
-    const layouts = Array.from(nodes.values());
-    if (layouts.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const layout of layouts) {
-      minX = Math.min(minX, layout.x);
-      minY = Math.min(minY, layout.y);
-      maxX = Math.max(maxX, layout.x + layout.width);
-      maxY = Math.max(maxY, layout.y + layout.height);
+  private calcBounds(nodes: Map<string, NodeLayout>): Bounds {
+    const ls = Array.from(nodes.values());
+    if (!ls.length) return { x: 0, y: 0, width: 0, height: 0 };
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const l of ls) {
+      minX = Math.min(minX, l.x);
+      minY = Math.min(minY, l.y);
+      maxX = Math.max(maxX, l.x + l.width);
+      maxY = Math.max(maxY, l.y + l.height);
     }
-
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 }
 
+// ---------- TimelineLayoutEngine (keep existing) ----------
 export class TimelineLayoutEngine implements LayoutEngine {
   private options: LayoutOptions;
   private orientation: "horizontal" | "vertical";
-
   constructor(
     orientation: "horizontal" | "vertical" = "horizontal",
     options?: Partial<LayoutOptions>,
@@ -904,9 +596,7 @@ export class TimelineLayoutEngine implements LayoutEngine {
     this.options = { ...DEFAULT_LAYOUT_OPTIONS, ...options };
     this.orientation = orientation;
   }
-
   clearCache(): void {}
-
   calculate(
     root: MindMapNode,
     options?: LayoutOptions,
@@ -915,150 +605,104 @@ export class TimelineLayoutEngine implements LayoutEngine {
     const opts = { ...this.options, ...options };
     const nodes = new Map<string, NodeLayout>();
     const connections = new Map<string, ConnectionLayout>();
-
-    const rootLayout = this.calculateNodeLayout(root, opts);
+    const rootLayout = this.calcNode(root, opts);
     nodes.set(root.id, rootLayout);
-
-    this.calculateChildren(root, rootLayout, nodes, connections, opts);
-
-    const bounds = this.calculateTotalBounds(nodes);
-
+    this.calcChildren(root, rootLayout, nodes, connections, opts);
+    const bounds = this.calcBounds(nodes);
     updateChildrenBounds(root, nodes);
-
     return { nodes, connections, bounds };
   }
-
   calculateNodeSize(node: MindMapNode): Size {
-    return {
-      width: this.estimateNodeWidth(node),
-      height: this.estimateNodeHeight(node),
-    };
+    return { width: this.estW(node), height: this.estH(node) };
   }
-
   calculateConnectionPath(from: NodeLayout, to: NodeLayout): string {
     if (this.orientation === "horizontal") {
-      const startX = from.x + from.width;
-      const startY = from.y + from.height / 2;
-      const endX = to.x;
-      const endY = to.y + to.height / 2;
-      return `M ${startX} ${startY} L ${endX} ${endY}`;
-    } else {
-      const startX = from.x + from.width / 2;
-      const startY = from.y + from.height;
-      const endX = to.x + to.width / 2;
-      const endY = to.y;
-      return `M ${startX} ${startY} L ${endX} ${endY}`;
+      return `M ${from.x + from.width} ${from.y + from.height / 2} L ${to.x} ${to.y + to.height / 2}`;
     }
+    return `M ${from.x + from.width / 2} ${from.y + from.height} L ${to.x + to.width / 2} ${to.y}`;
   }
-
-  private calculateNodeLayout(
-    node: MindMapNode,
-    options: LayoutOptions,
-  ): NodeLayout {
+  private calcNode(node: MindMapNode, options: LayoutOptions): NodeLayout {
     return {
       id: node.id,
       x: 0,
       y: 0,
-      width: this.estimateNodeWidth(node),
-      height: this.estimateNodeHeight(node),
+      width: this.estW(node),
+      height: this.estH(node),
       childrenBounds: { x: 0, y: 0, width: 0, height: 0 },
     };
   }
-
-  private estimateNodeWidth(node: MindMapNode): number {
-    const titleLength = node.title.length;
-    return Math.max(100, Math.min(200, titleLength * 8 + 32));
+  private estW(node: MindMapNode) {
+    return Math.max(100, Math.min(200, node.title.length * 8 + 32));
   }
-
-  private estimateNodeHeight(node: MindMapNode): number {
+  private estH(node: MindMapNode) {
     return 40;
   }
-
-  private calculateChildren(
-    parentNode: MindMapNode,
-    parentLayout: NodeLayout,
+  private calcChildren(
+    parent: MindMapNode,
+    pl: NodeLayout,
     nodes: Map<string, NodeLayout>,
     connections: Map<string, ConnectionLayout>,
     options: LayoutOptions,
   ): void {
-    const children = parentNode.attachedChildren;
-    if (children.length === 0) return;
-
-    let currentPos =
+    const kids = parent.attachedChildren;
+    if (!kids.length) return;
+    let cp =
       this.orientation === "horizontal"
-        ? parentLayout.x + parentLayout.width + options.horizontalSpacing
-        : parentLayout.y + parentLayout.height + options.verticalSpacing;
-
-    for (const child of children) {
-      const childLayout = this.calculateNodeLayout(child, options);
-
+        ? pl.x + pl.width + options.horizontalSpacing
+        : pl.y + pl.height + options.verticalSpacing;
+    for (const child of kids) {
+      const cl = this.calcNode(child, options);
       if (this.orientation === "horizontal") {
-        childLayout.x = currentPos;
-        childLayout.y = parentLayout.y;
+        cl.x = cp;
+        cl.y = pl.y;
       } else {
-        childLayout.x = parentLayout.x;
-        childLayout.y = currentPos;
+        cl.x = pl.x;
+        cl.y = cp;
       }
-
-      nodes.set(child.id, childLayout);
-
-      const connectionId = `${parentNode.id}-${child.id}`;
-      connections.set(connectionId, {
-        id: connectionId,
-        fromId: parentNode.id,
+      nodes.set(child.id, cl);
+      const id = `${parent.id}-${child.id}`;
+      connections.set(id, {
+        id,
+        fromId: parent.id,
         toId: child.id,
-        path: this.calculateConnectionPath(parentLayout, childLayout),
+        path: this.calculateConnectionPath(pl, cl),
         startPoint: {
           x:
             this.orientation === "horizontal"
-              ? parentLayout.x + parentLayout.width
-              : parentLayout.x + parentLayout.width / 2,
+              ? pl.x + pl.width
+              : pl.x + pl.width / 2,
           y:
             this.orientation === "horizontal"
-              ? parentLayout.y + parentLayout.height / 2
-              : parentLayout.y + parentLayout.height,
+              ? pl.y + pl.height / 2
+              : pl.y + pl.height,
         },
         endPoint: {
-          x:
-            this.orientation === "horizontal"
-              ? childLayout.x
-              : childLayout.x + childLayout.width / 2,
-          y:
-            this.orientation === "horizontal"
-              ? childLayout.y + childLayout.height / 2
-              : childLayout.y,
+          x: this.orientation === "horizontal" ? cl.x : cl.x + cl.width / 2,
+          y: this.orientation === "horizontal" ? cl.y + cl.height / 2 : cl.y,
         },
         controlPoints: [],
       });
-
-      if (child.hasChildren) {
-        this.calculateChildren(child, childLayout, nodes, connections, options);
-      }
-
-      if (this.orientation === "horizontal") {
-        currentPos += childLayout.width + options.horizontalSpacing;
-      } else {
-        currentPos += childLayout.height + options.verticalSpacing;
-      }
+      if (child.hasChildren)
+        this.calcChildren(child, cl, nodes, connections, options);
+      cp +=
+        this.orientation === "horizontal"
+          ? cl.width + options.horizontalSpacing
+          : cl.height + options.verticalSpacing;
     }
   }
-
-  private calculateTotalBounds(nodes: Map<string, NodeLayout>): Bounds {
-    const layouts = Array.from(nodes.values());
-    if (layouts.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
-
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-
-    for (const layout of layouts) {
-      minX = Math.min(minX, layout.x);
-      minY = Math.min(minY, layout.y);
-      maxX = Math.max(maxX, layout.x + layout.width);
-      maxY = Math.max(maxY, layout.y + layout.height);
+  private calcBounds(nodes: Map<string, NodeLayout>): Bounds {
+    const ls = Array.from(nodes.values());
+    if (!ls.length) return { x: 0, y: 0, width: 0, height: 0 };
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const l of ls) {
+      minX = Math.min(minX, l.x);
+      minY = Math.min(minY, l.y);
+      maxX = Math.max(maxX, l.x + l.width);
+      maxY = Math.max(maxY, l.y + l.height);
     }
-
     return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
   }
 }
